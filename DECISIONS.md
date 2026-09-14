@@ -2,6 +2,13 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-09-14 — M3: Ingredient library
+
+- **"Used In" rows in `IngredientDetailView` aren't tappable yet.** §10.9 says tapping a used-in meal should push `MealDetailView`, but that screen doesn't exist until M4. Shown as plain, non-navigable text for now; M4 will wire up the navigation once `MealDetailView` exists.
+- **Delete confirmation copy isn't specified.** §10.9 says swiping/tapping Delete needs "confirmation" but gives no exact wording (unlike the merge confirmation, which is quoted in full). Used `"Delete \"<name>\"? This can't be undone."` for both the library row's swipe-to-delete and the detail view's Delete Ingredient button, matching the tone of the specified merge copy.
+- **`IngredientPickerSheet`'s create-row completion is simplified for M3.** §10.7 says creating a new ingredient from the picker's search "creates the ingredient immediately and continues to step 2" (`RecipeIngredientForm`), but that view doesn't exist until M4. For now, creating from the picker calls `onSelect` and dismisses the whole sheet; M4 will change the completion to push into the recipe-line form instead. Since none of M3's own flows (merge, which explicitly hides the create row per §10.9) exercise this path, coverage is via a unit test on the pure `IngredientPickerSheet.showsCreateRow` decision function rather than manual QA.
+- **`SettingsView` is intentionally minimal.** M3 says "a temporary Settings screen is fine" — built only the "Library → Ingredients" link from §10.12 item 3. The Shopping Reminder, WhatsApp and About sections arrive in M11.
+
 ## 2026-09-14 — M2 fixes: test container lifetime and draft normalisation
 
 - **Real cause of the M2 test crash: dangling `ModelContext`, not parallelism.** `IngredientStoreTests.makeStore()` and `MealStoreTests.makeContext()` created a local `ModelContainer`, handed out a store/context built on it, and let the container fall out of scope — a `ModelContext` doesn't retain its container, so once the container deallocated, the next fetch trapped inside SwiftData (`EXC_BREAKPOINT`/`SIGTRAP`). It looked parallelism-related because Swift Testing's concurrent scheduling changed which test's container got collected first, but the bug was present regardless. Fixed by storing the container as a `let` property built in each suite's `init() throws`, so it lives for the whole test's lifetime. No workaround (e.g. `-parallel-testing-enabled NO`, `.serialized`) needed or used.

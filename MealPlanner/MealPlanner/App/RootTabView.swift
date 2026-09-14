@@ -25,7 +25,7 @@ struct RootTabView: View {
             }
             Tab("Settings", systemImage: "gearshape", value: .settings) {
                 NavigationStack {
-                    PlaceholderScreen(title: "Settings")
+                    SettingsView()
                 }
             }
         }
