@@ -1,0 +1,25 @@
+import Testing
+@testable import MealPlanner
+
+@MainActor
+struct QuantityParserTests {
+    @Test(arguments: [
+        ("", QuantityParser.Result.empty),
+        ("   ", .empty),
+        ("2", .value(2)),
+        ("1.5", .value(1.5)),
+        ("1,5", .value(1.5)),
+        ("1/2", .value(0.5)),
+        ("1 1/2", .value(1.5)),
+        ("½", .value(0.5)),
+        ("¼", .value(0.25)),
+        ("¾", .value(0.75)),
+        ("0", .invalid),
+        ("-1", .invalid),
+        ("abc", .invalid),
+        ("1/0", .invalid),
+    ])
+    func parses(input: String, expected: QuantityParser.Result) {
+        #expect(QuantityParser.parse(input) == expected)
+    }
+}
