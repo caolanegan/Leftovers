@@ -2,12 +2,15 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-09-14 — M2 fixes: test container lifetime and draft normalisation
+
+- **Real cause of the M2 test crash: dangling `ModelContext`, not parallelism.** `IngredientStoreTests.makeStore()` and `MealStoreTests.makeContext()` created a local `ModelContainer`, handed out a store/context built on it, and let the container fall out of scope — a `ModelContext` doesn't retain its container, so once the container deallocated, the next fetch trapped inside SwiftData (`EXC_BREAKPOINT`/`SIGTRAP`). It looked parallelism-related because Swift Testing's concurrent scheduling changed which test's container got collected first, but the bug was present regardless. Fixed by storing the container as a `let` property built in each suite's `init() throws`, so it lives for the whole test's lifetime. No workaround (e.g. `-parallel-testing-enabled NO`, `.serialized`) needed or used.
+
 ## 2026-09-14 — M2: App shell, stores & sample data
 
 - **Built `MealDraft` (and `RecipeLineDraft`/`StepDraft`) two milestones early.** §8.3 specifies `MealStore.create(from draft: MealDraft)` and `update(_:from:)` exactly, but `MealDraft` itself is formally introduced in M4 (§10.6) alongside the editor UI. Since M2 explicitly asks for a full `create`/`update`, and changing a service's signature later is worse than adding a small pure value type now, I added `Features/Meals/MealDraft.swift` early — data only, no UI, no view files. M4 will build `MealEditorView`/`RecipeIngredientForm` against this same struct without touching `MealStore`.
 - **`IngredientStore`/`MealStore` don't yet call `ArchiveService.archiveEndedWeeks()` first.** §5.1 says every mutating service method must archive-first, but `ArchiveService` doesn't exist until M6, which explicitly says "Add archive-first calls to every mutating method in all stores." Not a deviation — just sequencing implied by the milestone breakdown.
 - **`IngredientStore.merge` manual-item quantity combination.** §8.4 says "add A's quantity when the base units match" but the model stores a single raw `quantity` + `unit`, not a base-unit amount. I convert both to base units, sum, then convert back to the target item's unit (e.g. 500 g + 0.5 kg → 1 kg), since that's the simplest reading that produces one coherent merged amount in the target's existing unit.
-- **Known flaky test-runner crash under parallel Swift Testing execution.** Running `xcodebuild test` with default settings intermittently crashes the whole test process (`EXC_BREAKPOINT`/`SIGTRAP` inside SwiftData's fetch, seen via `~/Library/Logs/DiagnosticReports`) when many `IngredientStoreTests`/`MealStoreTests` cases — each creating its own in-memory `ModelContainer` — run as concurrent Swift Testing tasks. `-parallel-testing-enabled NO` on `xcodebuild test` removes most of the crashes but not all; still under investigation. This looks like a SwiftData/simulator concurrency limitation rather than a bug in the store code itself (the same crash occurs on a bare `context.fetch` with zero rows), but needs a firmer fix (e.g. `@Suite(.serialized)` on the SwiftData-backed suites) before M2's test-passing criterion can be called fully done.
 
 ## 2026-09-14 — M1: Models & domain foundations
 

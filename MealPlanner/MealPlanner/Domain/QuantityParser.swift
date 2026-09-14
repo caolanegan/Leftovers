@@ -36,7 +36,7 @@ enum QuantityParser {
         case 1:
             return parseComponent(String(parts[0]))
         case 2:
-            guard let whole = Double(parts[0].replacingOccurrences(of: ",", with: ".")),
+            guard let whole = Double(normalizeSeparator(String(parts[0]))),
                   let fraction = parseFraction(String(parts[1]))
             else { return nil }
             return whole + fraction
@@ -49,7 +49,7 @@ enum QuantityParser {
         if text.contains("/") {
             return parseFraction(text)
         }
-        return Double(text.replacingOccurrences(of: ",", with: "."))
+        return Double(normalizeSeparator(text))
     }
 
     private static func parseFraction(_ text: String) -> Double? {
@@ -60,5 +60,20 @@ enum QuantityParser {
               denominator != 0
         else { return nil }
         return numerator / denominator
+    }
+
+    /// A comma followed by exactly three digits to the end of the text is a thousands
+    /// separator ("1,000" → "1000"); any other comma is a decimal separator ("1,5" → "1.5").
+    private static func normalizeSeparator(_ text: String) -> String {
+        if let commaIndex = text.firstIndex(of: ","),
+           text.distance(from: commaIndex, to: text.endIndex) == 4 {
+            let afterComma = text[text.index(after: commaIndex)...]
+            if afterComma.allSatisfy(\.isNumber) {
+                var thousands = text
+                thousands.remove(at: commaIndex)
+                return thousands
+            }
+        }
+        return text.replacingOccurrences(of: ",", with: ".")
     }
 }

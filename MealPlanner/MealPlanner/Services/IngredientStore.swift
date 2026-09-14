@@ -65,6 +65,11 @@ struct IngredientStore {
         let mealCount = ingredient.usedInMeals.count
         guard mealCount == 0 else { throw AppError.ingredientInUse(mealCount: mealCount) }
 
+        for item in ingredient.manualUses ?? [] {
+            guard let weekPlan = item.weekPlan, !weekPlan.isArchived else { continue }
+            context.delete(item)
+        }
+
         context.delete(ingredient)
         try context.save()
     }

@@ -4,26 +4,28 @@ import SwiftData
 
 @MainActor
 struct IngredientStoreTests {
-    private func makeStore() throws -> IngredientStore {
-        let container = try ModelContainerFactory.make(inMemory: true)
-        return IngredientStore(context: container.mainContext)
+    let container: ModelContainer
+    let context: ModelContext
+    let store: IngredientStore
+
+    init() throws {
+        container = try ModelContainerFactory.make(inMemory: true)
+        context = container.mainContext
+        store = IngredientStore(context: context)
     }
 
     @Test func createTrimsAndCollapsesWhitespace() throws {
-        let store = try makeStore()
         let ingredient = try store.create(name: "  Red   Onion ", defaultUnit: .item, category: .produce)
         #expect(ingredient.name == "Red Onion")
     }
 
     @Test func createWithEmptyNameThrowsInvalidName() throws {
-        let store = try makeStore()
         #expect(throws: AppError.invalidName) {
             try store.create(name: "   ", defaultUnit: .item, category: .produce)
         }
     }
 
     @Test func createWithDuplicateNameDifferentCaseThrows() throws {
-        let store = try makeStore()
         try store.create(name: "Onion", defaultUnit: .item, category: .produce)
 
         #expect(throws: AppError.duplicateIngredientName(existingName: "Onion")) {
@@ -32,7 +34,6 @@ struct IngredientStoreTests {
     }
 
     @Test func updateToADuplicateNameThrowsButKeepingOwnNameDoesNot() throws {
-        let store = try makeStore()
         let onion = try store.create(name: "Onion", defaultUnit: .item, category: .produce)
         try store.create(name: "Garlic", defaultUnit: .clove, category: .produce)
 
@@ -45,17 +46,12 @@ struct IngredientStoreTests {
     }
 
     @Test func deletingAnUnusedIngredientSucceeds() throws {
-        let store = try makeStore()
         let onion = try store.create(name: "Onion", defaultUnit: .item, category: .produce)
         try store.delete(onion)
         #expect(try store.all().isEmpty)
     }
 
     @Test func deletingAnIngredientInUseThrows() throws {
-        let container = try ModelContainerFactory.make(inMemory: true)
-        let context = container.mainContext
-        let store = IngredientStore(context: context)
-
         let onion = try store.create(name: "Onion", defaultUnit: .item, category: .produce)
         let meal = Meal(name: "Soup")
         context.insert(meal)
@@ -69,8 +65,31 @@ struct IngredientStoreTests {
         }
     }
 
+    @Test func deletingAnIngredientRemovesItsManualItemsInNonArchivedWeeks() throws {
+        let onion = try store.create(name: "Onion", defaultUnit: .item, category: .produce)
+
+        let currentWeek = WeekPlan(weekID: "2026-W38")
+        context.insert(currentWeek)
+        let currentItem = ManualShoppingItem(ingredient: onion, quantity: 2, unit: .item)
+        currentItem.weekPlan = currentWeek
+        context.insert(currentItem)
+
+        let endedWeek = WeekPlan(weekID: "2026-W30")
+        endedWeek.isArchived = true
+        context.insert(endedWeek)
+        let archivedItem = ManualShoppingItem(ingredient: onion, quantity: 1, unit: .item)
+        archivedItem.weekPlan = endedWeek
+        context.insert(archivedItem)
+
+        try context.save()
+
+        try store.delete(onion)
+
+        #expect(currentWeek.manualItems?.isEmpty == true)
+        #expect(endedWeek.manualItems?.count == 1)
+    }
+
     @Test func searchRanksPrefixMatchesFirstThenAToZ() throws {
-        let store = try makeStore()
         try store.create(name: "Chorizo", defaultUnit: .g, category: .meatFish)
         try store.create(name: "Chicken breast", defaultUnit: .g, category: .meatFish)
         try store.create(name: "Beef mince", defaultUnit: .g, category: .meatFish)
@@ -81,13 +100,11 @@ struct IngredientStoreTests {
     }
 
     @Test func findLocatesByNormalizedKey() throws {
-        let store = try makeStore()
         try store.create(name: "Crème Fraîche", defaultUnit: .tbsp, category: .dairyEggs)
         #expect(try store.find(named: "creme fraiche")?.name == "Crème Fraîche")
     }
 
     @Test func findOrCreateReturnsExistingWithoutDuplicating() throws {
-        let store = try makeStore()
         let first = try store.create(name: "Onion", defaultUnit: .item, category: .produce)
         let found = try store.findOrCreate(name: "onion", defaultUnit: .kg, category: .other)
 
@@ -96,10 +113,6 @@ struct IngredientStoreTests {
     }
 
     @Test func mergeMovesRecipeLinesAndDeletesSource() throws {
-        let container = try ModelContainerFactory.make(inMemory: true)
-        let context = container.mainContext
-        let store = IngredientStore(context: context)
-
         let source = try store.create(name: "Onions", defaultUnit: .item, category: .produce)
         let target = try store.create(name: "Onion", defaultUnit: .item, category: .produce)
 
@@ -118,10 +131,6 @@ struct IngredientStoreTests {
     }
 
     @Test func mergeCombinesManualItemsWithMatchingBaseUnits() throws {
-        let container = try ModelContainerFactory.make(inMemory: true)
-        let context = container.mainContext
-        let store = IngredientStore(context: context)
-
         let source = try store.create(name: "Onions", defaultUnit: .item, category: .produce)
         let target = try store.create(name: "Onion", defaultUnit: .item, category: .produce)
 

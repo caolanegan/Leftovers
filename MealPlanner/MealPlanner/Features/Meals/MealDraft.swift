@@ -42,6 +42,10 @@ struct MealDraft: Equatable {
     func normalized() -> MealDraft {
         var copy = self
         copy.name = NameNormalizer.clean(name)
+        copy.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        copy.steps = steps
+            .map { StepDraft(id: $0.id, text: $0.text.trimmingCharacters(in: .whitespacesAndNewlines)) }
+            .filter { !$0.text.isEmpty }
         return copy
     }
 }

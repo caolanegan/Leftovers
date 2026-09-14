@@ -5,15 +5,19 @@ import SwiftData
 
 @MainActor
 struct MealStoreTests {
-    private func makeContext() throws -> ModelContext {
-        try ModelContainerFactory.make(inMemory: true).mainContext
+    let container: ModelContainer
+    let context: ModelContext
+    let mealStore: MealStore
+    let ingredientStore: IngredientStore
+
+    init() throws {
+        container = try ModelContainerFactory.make(inMemory: true)
+        context = container.mainContext
+        mealStore = MealStore(context: context)
+        ingredientStore = IngredientStore(context: context)
     }
 
     @Test func addSampleMealsAddsEightMealsAndTwentyEightIngredients() throws {
-        let context = try makeContext()
-        let mealStore = MealStore(context: context)
-        let ingredientStore = IngredientStore(context: context)
-
         let added = try mealStore.addSampleMeals()
 
         #expect(added == 8)
@@ -22,9 +26,6 @@ struct MealStoreTests {
     }
 
     @Test func addSampleMealsIsIdempotent() throws {
-        let context = try makeContext()
-        let mealStore = MealStore(context: context)
-
         _ = try mealStore.addSampleMeals()
         let secondRun = try mealStore.addSampleMeals()
 
@@ -33,9 +34,6 @@ struct MealStoreTests {
     }
 
     @Test func createBuildsAMealFromADraft() throws {
-        let context = try makeContext()
-        let ingredientStore = IngredientStore(context: context)
-        let mealStore = MealStore(context: context)
         let onion = try ingredientStore.create(name: "Onion", defaultUnit: .item, category: .produce)
 
         var draft = MealDraft()
@@ -56,9 +54,6 @@ struct MealStoreTests {
     }
 
     @Test func createWithInvalidDraftThrows() throws {
-        let context = try makeContext()
-        let mealStore = MealStore(context: context)
-
         var draft = MealDraft()
         draft.name = ""
         #expect(throws: AppError.invalidName) {
@@ -67,9 +62,6 @@ struct MealStoreTests {
     }
 
     @Test func updateReplacesIngredientsAndSteps() throws {
-        let context = try makeContext()
-        let ingredientStore = IngredientStore(context: context)
-        let mealStore = MealStore(context: context)
         let onion = try ingredientStore.create(name: "Onion", defaultUnit: .item, category: .produce)
         let garlic = try ingredientStore.create(name: "Garlic", defaultUnit: .clove, category: .produce)
 
@@ -87,9 +79,6 @@ struct MealStoreTests {
     }
 
     @Test func duplicateCopiesFieldsAndResetsFavorite() throws {
-        let context = try makeContext()
-        let ingredientStore = IngredientStore(context: context)
-        let mealStore = MealStore(context: context)
         let onion = try ingredientStore.create(name: "Onion", defaultUnit: .item, category: .produce)
 
         var draft = MealDraft()
@@ -107,8 +96,6 @@ struct MealStoreTests {
     }
 
     @Test func toggleFavoriteFlipsTheFlag() throws {
-        let context = try makeContext()
-        let mealStore = MealStore(context: context)
         var draft = MealDraft()
         draft.name = "Soup"
         let meal = try mealStore.create(from: draft)
