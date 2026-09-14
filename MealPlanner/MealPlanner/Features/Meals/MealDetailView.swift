@@ -7,6 +7,10 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlan
 
 struct MealDetailView: View {
     let meal: Meal
+    /// The enclosing tab's bound navigation path, if it has one. Used by
+    /// `duplicate()` to replace this screen with the new meal (§10.5) so Back
+    /// still returns to the library instead of the meal that was duplicated.
+    var path: Binding<NavigationPath>? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -62,8 +66,10 @@ struct MealDetailView: View {
                                 }
                             }
                             Spacer()
-                            Text(amountText(line))
-                                .foregroundStyle(.secondary)
+                            if let amount = amountText(line) {
+                                Text(amount)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
@@ -151,8 +157,8 @@ struct MealDetailView: View {
         return sentences.joined(separator: " ")
     }
 
-    private func amountText(_ line: RecipeIngredient) -> String {
-        guard let quantity = line.quantity else { return "To taste" }
+    private func amountText(_ line: RecipeIngredient) -> String? {
+        guard let quantity = line.quantity else { return nil }
         return QuantityFormatter.format(quantity, unit: line.unit)
     }
 
@@ -167,7 +173,11 @@ struct MealDetailView: View {
 
     private func duplicate() {
         do {
-            try MealStore(context: modelContext).duplicate(meal)
+            let copy = try MealStore(context: modelContext).duplicate(meal)
+            if let path {
+                path.wrappedValue.removeLast()
+                path.wrappedValue.append(AppRoute.meal(copy))
+            }
         } catch {
             logger.error("Failed to duplicate meal: \(error, privacy: .public)")
             errorMessage = "Something went wrong. Please try again."

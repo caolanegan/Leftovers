@@ -71,11 +71,14 @@ struct MealEditorView: View {
             .sheet(item: $editingLine) { line in
                 NavigationStack {
                     if let ingredient = ingredient(for: line.ingredientID) {
-                        RecipeIngredientForm(ingredient: ingredient, existingLine: line) { updated in
-                            if let index = draft.lines.firstIndex(where: { $0.id == updated.id }) {
-                                draft.lines[index] = updated
-                            }
-                        }
+                        RecipeIngredientForm(
+                            ingredient: ingredient,
+                            mode: .edit(existing: line, onSave: { updated in
+                                if let index = draft.lines.firstIndex(where: { $0.id == updated.id }) {
+                                    draft.lines[index] = updated
+                                }
+                            })
+                        )
                     }
                 }
             }
@@ -98,7 +101,7 @@ struct MealEditorView: View {
             Picker("Time", selection: $draft.totalMinutes) {
                 Text("Not set").tag(Int?.none)
                 ForEach(timeOptions, id: \.self) { minutes in
-                    Text("\(minutes) min").tag(Int?.some(minutes))
+                    Text(DurationFormatter.format(minutes: minutes)).tag(Int?.some(minutes))
                 }
             }
         }
@@ -136,9 +139,12 @@ struct MealEditorView: View {
                             }
                         }
                         Spacer()
-                        Text(amountText(line))
-                            .foregroundStyle(.secondary)
+                        if let amount = amountText(line) {
+                            Text(amount)
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -190,8 +196,8 @@ struct MealEditorView: View {
         )
     }
 
-    private func amountText(_ line: RecipeLineDraft) -> String {
-        guard let quantity = line.quantity else { return "To taste" }
+    private func amountText(_ line: RecipeLineDraft) -> String? {
+        guard let quantity = line.quantity else { return nil }
         return QuantityFormatter.format(quantity, unit: line.unit)
     }
 

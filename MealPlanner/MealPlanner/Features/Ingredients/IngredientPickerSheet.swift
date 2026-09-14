@@ -82,15 +82,17 @@ struct IngredientPickerSheet: View {
                 case .recipeForm(let ingredient):
                     RecipeIngredientForm(
                         ingredient: ingredient,
-                        onAdd: { line in
-                            recipeCompletion?.onAdd(line)
-                            recipeCompletion?.onFinish()
-                        },
-                        onAddAndNext: { line in
-                            recipeCompletion?.onAdd(line)
-                            path.removeLast()
-                            searchText = ""
-                        }
+                        mode: .add(
+                            onAdd: { line in
+                                recipeCompletion?.onAdd(line)
+                                recipeCompletion?.onFinish()
+                            },
+                            onAddAndNext: { line in
+                                recipeCompletion?.onAdd(line)
+                                path.removeLast()
+                                searchText = ""
+                            }
+                        )
                     )
                 }
             }

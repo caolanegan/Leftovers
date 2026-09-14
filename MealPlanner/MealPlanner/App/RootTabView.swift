@@ -3,6 +3,7 @@ import SwiftData
 
 struct RootTabView: View {
     @Environment(AppState.self) private var appState
+    @State private var mealsPath = NavigationPath()
 
     var body: some View {
         @Bindable var appState = appState
@@ -15,9 +16,9 @@ struct RootTabView: View {
                 }
             }
             Tab("Meals", systemImage: "fork.knife", value: .meals) {
-                NavigationStack {
+                NavigationStack(path: $mealsPath) {
                     MealLibraryView()
-                        .appRouteDestinations()
+                        .appRouteDestinations(path: $mealsPath)
                 }
             }
             Tab("Shopping", systemImage: "cart", value: .shopping) {

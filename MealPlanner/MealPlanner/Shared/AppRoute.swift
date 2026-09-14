@@ -13,7 +13,11 @@ enum AppRoute: Hashable {
 }
 
 extension View {
-    func appRouteDestinations() -> some View {
+    /// - Parameter path: the enclosing `NavigationStack`'s bound path, if it has
+    ///   one. `MealDetailView` uses it to replace itself with a duplicated meal
+    ///   (§10.5) so Back still returns to the library. Tabs that don't bind a
+    ///   path (or don't need that behaviour) can omit it.
+    func appRouteDestinations(path: Binding<NavigationPath>? = nil) -> some View {
         navigationDestination(for: AppRoute.self) { route in
             switch route {
             case .ingredientLibrary:
@@ -21,7 +25,7 @@ extension View {
             case .ingredient(let ingredient):
                 IngredientDetailView(ingredient: ingredient)
             case .meal(let meal):
-                MealDetailView(meal: meal)
+                MealDetailView(meal: meal, path: path)
             }
         }
     }

@@ -51,7 +51,9 @@ struct IngredientDetailView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(mealsUsingIngredient) { meal in
-                        Text(meal.name)
+                        NavigationLink(value: AppRoute.meal(meal)) {
+                            Text(meal.name)
+                        }
                     }
                 }
             }
