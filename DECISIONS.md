@@ -2,6 +2,11 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-09-14 — M5: Meal photos
+
+- **"Choose from Library" is a plain `Button` that sets `showingPhotosPicker = true`, with a `.photosPicker(isPresented:selection:matching:)` modifier on the section, rather than embedding a `PhotosPicker` view directly as a `Menu` row.** §10.6 doesn't prescribe the exact SwiftUI wiring, only the menu item's presence and label. Embedding `PhotosPicker` itself as a `Menu` item — the more obvious reading — compiles and looks correct, but verified in the Simulator that tapping it silently dismisses the menu without ever presenting the picker. The `isPresented` binding form, verified working end-to-end (select a photo → `ImageProcessor.prepare` runs → the meal's photo and thumbnail update and persist), avoids whatever SwiftUI issue causes the embedded form to swallow the tap.
+- **`UIImagePickerController.isSourceTypeAvailable(.camera)` returns `true` in this Xcode 26 / iOS 26 Simulator**, so "Take Photo" is shown there too, not hidden as §14's edge-case table (written for older Simulators without a virtual camera) describes. This is the platform API's real answer, not a bug in `MealEditorPhotoSection` — the code correctly hides the option whenever that API says no camera is available, on whichever OS/Simulator combination that's true.
+
 ## 2026-09-14 — M4 fixes: recipe line editing and polish
 
 - **`RecipeIngredientForm` took a `Mode` enum instead of three optional closures.** The original `onAdd`/`onAddAndNext`/`onSave` optional-closure design let `MealEditorView`'s edit-mode call site pass its update closure as an unlabelled trailing closure; in Swift 6 that bound to `onAdd` (the first optional closure parameter) rather than `onSave`, so "Done" silently discarded edits. Replaced with `enum Mode { case add(onAdd:, onAddAndNext:); case edit(existing:, onSave:) }` — a single required, non-defaulted parameter that makes the same mistake a compile error (there's no closure left for a trailing closure to ambiguously match).

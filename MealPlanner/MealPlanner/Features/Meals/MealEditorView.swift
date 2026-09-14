@@ -8,7 +8,6 @@ private let timeOptions = [5, 10, 15, 20, 25, 30, 40, 45, 60, 75, 90, 120, 150, 
 
 /// A sheet with its own `NavigationStack`, used for both create (`meal ==
 /// nil`) and edit. Edits a `MealDraft` value, never the model (§10.6).
-/// The photo section (§10.6 item 1) arrives in M5.
 struct MealEditorView: View {
     var meal: Meal? = nil
 
@@ -34,6 +33,7 @@ struct MealEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
+                MealEditorPhotoSection(photo: $draft.photo, thumbnail: $draft.thumbnail, mealName: draft.name)
                 detailsSection
                 suitableForSection
                 ingredientsSection

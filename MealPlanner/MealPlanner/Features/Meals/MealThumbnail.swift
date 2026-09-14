@@ -1,9 +1,8 @@
 import SwiftUI
 import UIKit
 
-/// 56 pt rounded thumbnail for `MealRow`. Placeholder-only in M4: no meal has
-/// `thumbnailData` yet since `MealEditorPhotoSection` arrives in M5, but this
-/// already renders a real photo once one is set.
+/// Rounded thumbnail for `MealRow`, falling back to a placeholder icon when
+/// the meal has no `thumbnailData`.
 struct MealThumbnail: View {
     var thumbnailData: Data?
     var mealName: String
