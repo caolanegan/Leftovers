@@ -16,6 +16,10 @@ struct WhatsAppLinkTests {
         #expect(WhatsAppLink.normalizePhone("07700 900123") == .invalid)
     }
 
+    @Test func rejectsNonASCIIDigits() {
+        #expect(WhatsAppLink.normalizePhone("+44 ٧٧٠٠ 900123") == .invalid)
+    }
+
     @Test func emptyInputIsEmpty() {
         #expect(WhatsAppLink.normalizePhone("") == .empty)
     }

@@ -21,7 +21,7 @@ enum WhatsAppLink {
         }
 
         guard (8...15).contains(digits.count),
-              digits.allSatisfy(\.isNumber),
+              digits.allSatisfy({ $0.isASCII && $0.isNumber }),
               !digits.hasPrefix("0")
         else { return .invalid }
 

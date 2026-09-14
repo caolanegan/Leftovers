@@ -17,6 +17,10 @@ struct QuantityFormatterTests {
         #expect(QuantityFormatter.format(amount, unit: unit) == expected)
     }
 
+    @Test func formatsSingularWhenTheAmountRoundsToOne() {
+        #expect(QuantityFormatter.format(1.001, unit: .tin) == "1 tin")
+    }
+
     @Test func formatsAJoinedAmountsDictionary() {
         #expect(QuantityFormatter.format(amounts: [.g: 200, .item: 2]) == "2 + 200 g")
     }

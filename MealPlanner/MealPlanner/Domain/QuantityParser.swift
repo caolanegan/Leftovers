@@ -3,13 +3,21 @@ import Foundation
 enum QuantityParser {
     enum Result: Equatable { case empty, value(Double), invalid }
 
+    static let maxValue: Double = 100_000
+
     private static let vulgarFractions: [Character: Double] = [
         "½": 0.5, "¼": 0.25, "¾": 0.75
     ]
 
+    private static let allowedCharacters = CharacterSet(charactersIn: "0123456789.,/ ½¼¾")
+
     static func parse(_ text: String) -> Result {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .empty }
+
+        guard trimmed.unicodeScalars.allSatisfy(allowedCharacters.contains) else {
+            return .invalid
+        }
 
         let value: Double?
         if trimmed.count == 1, let fraction = vulgarFractions[trimmed[trimmed.startIndex]] {
@@ -18,7 +26,7 @@ enum QuantityParser {
             value = parseNumeric(trimmed)
         }
 
-        guard let value, value > 0 else { return .invalid }
+        guard let value, value.isFinite, value > 0, value <= maxValue else { return .invalid }
         return .value(value)
     }
 

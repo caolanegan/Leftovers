@@ -18,6 +18,10 @@ struct QuantityParserTests {
         ("-1", .invalid),
         ("abc", .invalid),
         ("1/0", .invalid),
+        ("inf", .invalid),
+        ("1e20", .invalid),
+        ("0x10", .invalid),
+        ("100001", .invalid),
     ])
     func parses(input: String, expected: QuantityParser.Result) {
         #expect(QuantityParser.parse(input) == expected)
