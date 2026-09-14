@@ -6,7 +6,7 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlan
 
 struct IngredientLibraryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Ingredient.name) private var ingredients: [Ingredient]
+    @Query private var ingredients: [Ingredient]
     @State private var searchText = ""
     @State private var showingNewIngredient = false
     @State private var pendingDelete: Ingredient?
@@ -15,10 +15,14 @@ struct IngredientLibraryView: View {
     @State private var mergeTarget: Ingredient?
     @State private var errorMessage: String?
 
+    private var sortedIngredients: [Ingredient] {
+        ingredients.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
     private var filtered: [Ingredient] {
         let key = NameNormalizer.key(searchText)
-        guard !key.isEmpty else { return ingredients }
-        return ingredients.filter { NameNormalizer.key($0.name).contains(key) }
+        guard !key.isEmpty else { return sortedIngredients }
+        return sortedIngredients.filter { NameNormalizer.key($0.name).contains(key) }
     }
 
     private var sections: [(category: ShoppingCategory, items: [Ingredient])] {
@@ -33,7 +37,7 @@ struct IngredientLibraryView: View {
             ForEach(sections, id: \.category) { section in
                 Section(section.category.displayName) {
                     ForEach(section.items) { ingredient in
-                        NavigationLink(value: ingredient) {
+                        NavigationLink(value: AppRoute.ingredient(ingredient)) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(ingredient.name)
                                 Text(usageCaption(ingredient))
@@ -69,7 +73,6 @@ struct IngredientLibraryView: View {
         }
         .searchable(text: $searchText)
         .navigationTitle("Ingredients")
-        .navigationDestination(for: Ingredient.self) { IngredientDetailView(ingredient: $0) }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Add Ingredient", systemImage: "plus") { showingNewIngredient = true }
@@ -88,7 +91,7 @@ struct IngredientLibraryView: View {
             }
         }
         .confirmationDialog(
-            mergeDialogTitle,
+            "Merge Ingredients?",
             isPresented: Binding(get: { mergeTarget != nil }, set: { if !$0 { mergeTarget = nil } }),
             titleVisibility: .visible
         ) {
@@ -97,14 +100,18 @@ struct IngredientLibraryView: View {
                 mergeTarget = nil
                 mergeSource = nil
             }
+        } message: {
+            Text(mergeDialogMessage)
         }
         .confirmationDialog(
-            pendingDeleteTitle,
+            "Delete Ingredient?",
             isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) { performDelete() }
             Button("Cancel", role: .cancel) { pendingDelete = nil }
+        } message: {
+            Text(pendingDeleteMessage)
         }
         .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) {}
@@ -118,12 +125,12 @@ struct IngredientLibraryView: View {
         return count == 0 ? "Not used in any meals" : "Used in \(count) meal\(count == 1 ? "" : "s")"
     }
 
-    private var mergeDialogTitle: String {
+    private var mergeDialogMessage: String {
         guard let mergeSource, let mergeTarget else { return "" }
         return "Merge \"\(mergeSource.name)\" into \"\(mergeTarget.name)\"? Every recipe will use \"\(mergeTarget.name)\". This can't be undone."
     }
 
-    private var pendingDeleteTitle: String {
+    private var pendingDeleteMessage: String {
         guard let pendingDelete else { return "" }
         return "Delete \"\(pendingDelete.name)\"? This can't be undone."
     }
@@ -155,6 +162,7 @@ struct IngredientLibraryView: View {
 #Preview {
     NavigationStack {
         IngredientLibraryView()
+            .appRouteDestinations()
     }
     .modelContainer(PreviewContainer.shared)
 }

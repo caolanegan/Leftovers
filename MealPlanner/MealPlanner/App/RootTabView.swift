@@ -11,21 +11,25 @@ struct RootTabView: View {
             Tab("Plan", systemImage: "calendar", value: .plan) {
                 NavigationStack {
                     PlaceholderScreen(title: "Plan")
+                        .appRouteDestinations()
                 }
             }
             Tab("Meals", systemImage: "fork.knife", value: .meals) {
                 NavigationStack {
                     PlaceholderScreen(title: "Meals")
+                        .appRouteDestinations()
                 }
             }
             Tab("Shopping", systemImage: "cart", value: .shopping) {
                 NavigationStack {
                     PlaceholderScreen(title: "Shopping")
+                        .appRouteDestinations()
                 }
             }
             Tab("Settings", systemImage: "gearshape", value: .settings) {
                 NavigationStack {
                     SettingsView()
+                        .appRouteDestinations()
                 }
             }
         }

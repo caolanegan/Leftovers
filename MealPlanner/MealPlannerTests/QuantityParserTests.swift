@@ -10,6 +10,7 @@ struct QuantityParserTests {
         ("1.5", .value(1.5)),
         ("1,5", .value(1.5)),
         ("1,25", .value(1.25)),
+        ("0,125", .value(0.125)),
         ("1,000", .value(1000)),
         ("12,000", .value(12000)),
         ("1/2", .value(0.5)),

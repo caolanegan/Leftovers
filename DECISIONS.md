@@ -2,6 +2,10 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-09-14 — M3 fixes: navigation destinations and polish
+
+- **All navigation is value-based, through `Shared/AppRoute.swift`.** Mixing a view-based `NavigationLink { Destination() }` (in `SettingsView`) with a value-based `.navigationDestination(for: Ingredient.self)` declared lower down (in `IngredientLibraryView`) caused SwiftUI to warn "A navigationDestination for MealPlanner.Ingredient was declared earlier on the stack" and silently do nothing on tap. Fixed by routing every push through a single `AppRoute` enum, with `.navigationDestination(for: AppRoute.self)` declared exactly once per tab, at the root, via the `.appRouteDestinations()` modifier. **No screen may declare its own `navigationDestination(for:)` — add new cases to `AppRoute` instead** (M4 will add `.meal(Meal)`).
+
 ## 2026-09-14 — M3: Ingredient library
 
 - **"Used In" rows in `IngredientDetailView` aren't tappable yet.** §10.9 says tapping a used-in meal should push `MealDetailView`, but that screen doesn't exist until M4. Shown as plain, non-navigable text for now; M4 will wire up the navigation once `MealDetailView` exists.

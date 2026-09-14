@@ -53,6 +53,7 @@ struct IngredientPickerSheet: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .overlay {

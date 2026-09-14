@@ -18,6 +18,7 @@ struct NewIngredientForm: View {
     @State private var defaultUnit: IngredientUnit = .item
     @State private var category: ShoppingCategory = .other
     @State private var errorMessage: String?
+    @FocusState private var nameFieldFocused: Bool
 
     init(prefilledName: String = "", showsCancelButton: Bool = true, onCreate: @escaping (Ingredient) -> Void) {
         self.prefilledName = prefilledName
@@ -31,6 +32,7 @@ struct NewIngredientForm: View {
     var body: some View {
         Form {
             TextField("Name", text: $name)
+                .focused($nameFieldFocused)
             Picker("Default Unit", selection: $defaultUnit) {
                 ForEach(IngredientUnit.allCases) { unit in
                     Text(unit.pickerLabel).tag(unit)
@@ -60,6 +62,7 @@ struct NewIngredientForm: View {
         } message: {
             Text(errorMessage ?? "")
         }
+        .onAppear { nameFieldFocused = true }
     }
 
     private func create() {

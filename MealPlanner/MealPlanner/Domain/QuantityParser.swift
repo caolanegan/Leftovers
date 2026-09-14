@@ -64,7 +64,12 @@ enum QuantityParser {
 
     /// A comma followed by exactly three digits to the end of the text is a thousands
     /// separator ("1,000" → "1000"); any other comma is a decimal separator ("1,5" → "1.5").
+    /// A leading "0," is always a decimal separator ("0,125" → 0.125): nobody writes
+    /// a thousands separator right after a leading zero.
     private static func normalizeSeparator(_ text: String) -> String {
+        if text.hasPrefix("0,") {
+            return text.replacingOccurrences(of: ",", with: ".")
+        }
         if let commaIndex = text.firstIndex(of: ","),
            text.distance(from: commaIndex, to: text.endIndex) == 4 {
             let afterComma = text[text.index(after: commaIndex)...]

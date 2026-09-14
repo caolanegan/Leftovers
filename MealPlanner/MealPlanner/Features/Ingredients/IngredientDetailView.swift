@@ -67,7 +67,7 @@ struct IngredientDetailView: View {
                 }
             }
         }
-        .navigationTitle(name)
+        .navigationTitle(ingredient.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -81,20 +81,24 @@ struct IngredientDetailView: View {
             }
         }
         .confirmationDialog(
-            mergeDialogTitle,
+            "Merge Ingredients?",
             isPresented: Binding(get: { mergeTarget != nil }, set: { if !$0 { mergeTarget = nil } }),
             titleVisibility: .visible
         ) {
             Button("Merge", role: .destructive) { performMerge() }
             Button("Cancel", role: .cancel) { mergeTarget = nil }
+        } message: {
+            Text(mergeDialogMessage)
         }
         .confirmationDialog(
-            "Delete \"\(ingredient.name)\"? This can't be undone.",
+            "Delete Ingredient?",
             isPresented: $showingDeleteConfirmation,
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) { performDelete() }
             Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Delete \"\(ingredient.name)\"? This can't be undone.")
         }
         .alert(
             duplicateAlertTitle,
@@ -110,7 +114,7 @@ struct IngredientDetailView: View {
         }
     }
 
-    private var mergeDialogTitle: String {
+    private var mergeDialogMessage: String {
         guard let mergeTarget else { return "" }
         return "Merge \"\(ingredient.name)\" into \"\(mergeTarget.name)\"? Every recipe will use \"\(mergeTarget.name)\". This can't be undone."
     }

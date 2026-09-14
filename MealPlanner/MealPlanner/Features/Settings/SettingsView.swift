@@ -7,9 +7,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Library") {
-                NavigationLink("Ingredients") {
-                    IngredientLibraryView()
-                }
+                NavigationLink("Ingredients", value: AppRoute.ingredientLibrary)
             }
         }
         .navigationTitle("Settings")
@@ -19,6 +17,7 @@ struct SettingsView: View {
 #Preview {
     NavigationStack {
         SettingsView()
+            .appRouteDestinations()
     }
     .modelContainer(PreviewContainer.shared)
 }
