@@ -77,6 +77,10 @@ struct MealStore {
         try context.save()
     }
 
+    func upcomingPlanCount(for meal: Meal) -> Int {
+        (meal.slots ?? []).filter { $0.weekPlan?.isArchived == false }.count
+    }
+
     @discardableResult
     func addSampleMeals() throws -> Int {
         let existingNames = Set(try context.fetch(FetchDescriptor<Meal>()).map { NameNormalizer.key($0.name) })

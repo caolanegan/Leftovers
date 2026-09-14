@@ -9,7 +9,7 @@ import SwiftUI
 enum AppRoute: Hashable {
     case ingredientLibrary
     case ingredient(Ingredient)
-    // M4 will add: case meal(Meal)
+    case meal(Meal)
 }
 
 extension View {
@@ -20,6 +20,8 @@ extension View {
                 IngredientLibraryView()
             case .ingredient(let ingredient):
                 IngredientDetailView(ingredient: ingredient)
+            case .meal(let meal):
+                MealDetailView(meal: meal)
             }
         }
     }

@@ -8,14 +8,25 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlan
 /// adding a recipe line (M4), adding a hand-added shopping item (M9) and
 /// merging (M3, with `showsCreateRow: false`).
 struct IngredientPickerSheet: View {
+    /// Wires this sheet into the "add ingredient to a recipe" flow (§10.7):
+    /// picking or creating an ingredient pushes into `RecipeIngredientForm`
+    /// (step 2) instead of calling `onSelect` and dismissing. Merge (M3) and
+    /// the shopping "+" (M9) leave `recipeCompletion` nil and use `onSelect`.
+    struct RecipeCompletion {
+        var onAdd: (RecipeLineDraft) -> Void
+        var onFinish: () -> Void
+    }
+
     var excludedIngredientID: UUID?
     var showsCreateRow: Bool = true
-    var onSelect: (Ingredient) -> Void
+    var recipeCompletion: RecipeCompletion? = nil
+    var onSelect: (Ingredient) -> Void = { _ in }
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
     @State private var results: [Ingredient] = []
+    @State private var path = NavigationPath()
     @FocusState private var searchFieldFocused: Bool
 
     private var visibleResults: [Ingredient] {
@@ -28,32 +39,15 @@ struct IngredientPickerSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 if showsCreateRowNow {
-                    NavigationLink {
-                        NewIngredientForm(prefilledName: searchText, showsCancelButton: false) { ingredient in
-                            onSelect(ingredient)
-                            dismiss()
-                        }
-                    } label: {
+                    NavigationLink(value: Route.create(searchText)) {
                         Label("Create \"\(NameNormalizer.clean(searchText))\"", systemImage: "plus")
                     }
                 }
                 ForEach(visibleResults) { ingredient in
-                    Button {
-                        onSelect(ingredient)
-                        dismiss()
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(ingredient.name)
-                                .foregroundStyle(.primary)
-                            Text(ingredient.category.displayName)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
+                    row(for: ingredient)
                 }
             }
             .overlay {
@@ -79,6 +73,64 @@ struct IngredientPickerSheet: View {
                     Button("Cancel") { dismiss() }
                 }
             }
+            .navigationDestination(for: Route.self) { route in
+                switch route {
+                case .create(let prefill):
+                    NewIngredientForm(prefilledName: prefill, showsCancelButton: false) { ingredient in
+                        handlePicked(ingredient)
+                    }
+                case .recipeForm(let ingredient):
+                    RecipeIngredientForm(
+                        ingredient: ingredient,
+                        onAdd: { line in
+                            recipeCompletion?.onAdd(line)
+                            recipeCompletion?.onFinish()
+                        },
+                        onAddAndNext: { line in
+                            recipeCompletion?.onAdd(line)
+                            path.removeLast()
+                            searchText = ""
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func row(for ingredient: Ingredient) -> some View {
+        if recipeCompletion != nil {
+            NavigationLink(value: Route.recipeForm(ingredient)) {
+                ingredientLabel(ingredient)
+            }
+        } else {
+            Button {
+                onSelect(ingredient)
+                dismiss()
+            } label: {
+                ingredientLabel(ingredient)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func ingredientLabel(_ ingredient: Ingredient) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(ingredient.name)
+                .foregroundStyle(.primary)
+            Text(ingredient.category.displayName)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func handlePicked(_ ingredient: Ingredient) {
+        if recipeCompletion != nil {
+            path.removeLast()
+            path.append(Route.recipeForm(ingredient))
+        } else {
+            onSelect(ingredient)
+            dismiss()
         }
     }
 
@@ -99,6 +151,11 @@ struct IngredientPickerSheet: View {
         let key = NameNormalizer.key(searchText)
         guard !key.isEmpty else { return false }
         return !matches.contains { NameNormalizer.key($0.name) == key }
+    }
+
+    private enum Route: Hashable {
+        case create(String)
+        case recipeForm(Ingredient)
     }
 }
 

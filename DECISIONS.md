@@ -2,6 +2,14 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-09-14 — M4: Meals
+
+- **"Add to Plan" is present but disabled in M4.** §10.5's mockup shows an "Add to Plan" button under the header and an "Add to Plan" row in the ⋯ menu, but `AddToPlanSheet` and `WeekPlanService` don't exist until M6 (§16). Built both controls to match the mockup exactly, but disabled — matching the M3 precedent of building UI ahead of its backing service (the "Used In" rows). M6 will wire them up to the real sheet.
+- **`IngredientPickerSheet`'s create-row now continues to step 2, as flagged in M3.** `IngredientPickerSheet` gained a `recipeCompletion` parameter: when set (only by the "Add Ingredient" flow in `MealEditorView`), picking or creating an ingredient pushes `RecipeIngredientForm` onto the picker's own `NavigationStack` (via a `NavigationPath`) instead of calling `onSelect` and dismissing. Merge (M3) and the shopping "+" (M9) are unaffected — they leave `recipeCompletion` nil and keep the old dismiss-on-select behaviour.
+- **Unquantified recipe lines ("to taste") display as the text "To taste".** §6.4 documents `RecipeIngredient.quantity == nil` as meaning "to taste" but no screen's copy is specified for it. Used "To taste" wherever an amount would otherwise show (`MealDetailView`, `MealEditorView`'s ingredient rows).
+- **`MealStore.upcomingPlanCount(for:)` implemented now.** §8.3 lists it in the `MealStore` interface (added early, in M2, per that milestone's decision note) but no milestone before M4 needed it. `MealDetailView`'s and `MealLibraryView`'s delete-confirmation copy (§10.5) need the count, so it's implemented here as a simple, non-throwing filter over `meal.slots` — no `WeekPlanService` dependency, so no forward-reference to M6.
+- **"Change Photo"/photo section skipped entirely.** M4's read list explicitly says "§10.6 (no photo section)"; `MealEditorView` has no Photo form section and `MealDraft.photo`/`.thumbnail` stay `nil` until M5 builds `MealEditorPhotoSection`.
+
 ## 2026-09-14 — M3 fixes: navigation destinations and polish
 
 - **All navigation is value-based, through `Shared/AppRoute.swift`.** Mixing a view-based `NavigationLink { Destination() }` (in `SettingsView`) with a value-based `.navigationDestination(for: Ingredient.self)` declared lower down (in `IngredientLibraryView`) caused SwiftUI to warn "A navigationDestination for MealPlanner.Ingredient was declared earlier on the stack" and silently do nothing on tap. Fixed by routing every push through a single `AppRoute` enum, with `.navigationDestination(for: AppRoute.self)` declared exactly once per tab, at the root, via the `.appRouteDestinations()` modifier. **No screen may declare its own `navigationDestination(for:)` — add new cases to `AppRoute` instead** (M4 will add `.meal(Meal)`).

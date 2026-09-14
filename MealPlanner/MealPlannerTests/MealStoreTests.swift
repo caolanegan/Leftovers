@@ -106,4 +106,28 @@ struct MealStoreTests {
         try mealStore.toggleFavorite(meal)
         #expect(meal.isFavorite == false)
     }
+
+    @Test func upcomingPlanCountCountsOnlyNonArchivedSlots() throws {
+        var draft = MealDraft()
+        draft.name = "Soup"
+        let meal = try mealStore.create(from: draft)
+
+        let currentWeek = WeekPlan(weekID: "2026-W38")
+        let archivedWeek = WeekPlan(weekID: "2026-W37")
+        archivedWeek.isArchived = true
+        context.insert(currentWeek)
+        context.insert(archivedWeek)
+
+        let currentSlot = MealSlot(dayIndex: 0, mealType: .dinner)
+        currentSlot.weekPlan = currentWeek
+        currentSlot.meal = meal
+        let archivedSlot = MealSlot(dayIndex: 0, mealType: .dinner)
+        archivedSlot.weekPlan = archivedWeek
+        archivedSlot.meal = meal
+        context.insert(currentSlot)
+        context.insert(archivedSlot)
+        try context.save()
+
+        #expect(mealStore.upcomingPlanCount(for: meal) == 1)
+    }
 }

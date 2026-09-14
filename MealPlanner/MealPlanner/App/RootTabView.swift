@@ -16,7 +16,7 @@ struct RootTabView: View {
             }
             Tab("Meals", systemImage: "fork.knife", value: .meals) {
                 NavigationStack {
-                    PlaceholderScreen(title: "Meals")
+                    MealLibraryView()
                         .appRouteDestinations()
                 }
             }
