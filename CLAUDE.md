@@ -9,6 +9,8 @@ A native iPhone meal-planning app (SwiftUI + SwiftData, iOS 18+). **`SPEC.md` is
 - Done means: **zero errors, zero warnings**, all tests passing, every acceptance criterion reported ✅/❌, and a git commit (e.g. `M4: Meals library, detail and editor`).
 - If the spec is ambiguous, contradicts itself, or is impossible: choose the simplest option that fits it and add a dated entry to `DECISIONS.md`. Never invent behaviour silently.
 - Don't add features, screens, settings or dependencies that aren't in the spec.
+- **SPEC §18 (recipe photo import, M13–M15) is post-MVP.** Don't build or scaffold any of it until the human explicitly asks for M13.
+- Never hard-code, log, print or commit API keys or API response bodies. Unit tests never call live APIs; use the fixtures.
 
 ## Commands
 

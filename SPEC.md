@@ -1,6 +1,6 @@
 # MealPlanner — Product & Technical Specification
 
-> **Version:** 1.1 (MVP) · **Date:** 2026-09-14 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
+> **Version:** 1.2 (MVP + post-MVP §18) · **Date:** 2026-09-15 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
 >
 > **To the implementing model:** This document is the source of truth. Build the app **one milestone at a time** (§16). Each milestone lists the spec sections it needs and the acceptance criteria that must pass before it counts as done. If something here is ambiguous, pick the simplest option that fits the spec and write it down in `DECISIONS.md`. Do **not** add features that are not in this document.
 
@@ -8,6 +8,7 @@
 
 | Version | Changes |
 |---------|---------|
+| 1.2 | Added §18, **post-MVP** recipe photo import via the Claude API (milestones M13–M15). Nothing in M1–M12 changes. |
 | 1.1 | Past weeks become a frozen record (§6.7, §7.8, §8.1). A master ingredient library, with shopping-list merging by ingredient ID instead of name (§6.4, §10.9). Shopping items can be added by hand (§10.11). Leftovers (§7.7, §10.3). Randomising: last week's meals are excluded; randomise by meal type; re-roll a single slot (§7.6, §10.1). Meal photos (§8.5, §10.6). WhatsApp via `wa.me` links, including sending straight to a saved contact (§12). The "need more" logic is now explained in plain English (§7.5). |
 | 1.0 | First version. |
 
@@ -32,6 +33,7 @@
 15. [Testing](#15-testing)
 16. [Implementation milestones](#16-implementation-milestones)
 17. [Future roadmap](#17-future-roadmap)
+18. [Post-MVP: Recipe photo import](#18-post-mvp-recipe-photo-import)
 - [Appendix A — Sample data](#appendix-a--sample-data)
 - [Appendix B — Prompt templates](#appendix-b--prompt-templates)
 
@@ -86,6 +88,7 @@ MealPlanner is a clean, minimal, native iPhone app. It helps a household decide 
 - iPad layout, widgets, Apple Watch, Siri/Shortcuts
 - iCloud sync or sharing inside the app with other people (the data model is ready for it, §6.1)
 - Recipe import from URLs, nutrition information
+- Recipe import from photos (specified in §18 as post-MVP milestones M13–M15)
 - Scaling ingredients by servings, "pantry staples" exclusion
 - A configurable first day of the week (always Monday)
 - Android app, Tesco integration (§17)
@@ -1764,7 +1767,432 @@ If a data source becomes available:
 
 ### 17.4 Other ideas
 
-Import recipe from URL · scale by servings · pantry staples · favourites weighting in the randomiser · configurable first day of the week · widget with today's meals · multiple photos per meal.
+Import recipe from URL (can reuse the §18 pipeline with page text instead of photos) · scale by servings · pantry staples · favourites weighting in the randomiser · configurable first day of the week · widget with today's meals · multiple photos per meal.
+
+---
+
+## 18. Post-MVP: Recipe photo import
+
+> **POST-MVP. Do not build any of this until milestones M1–M12 are complete and the human asks for M13.** This section is written in advance so it's ready.
+>
+> Scope of M13–M15: **personal use** — the user pastes their own Anthropic API key into Settings. Publishing the feature to the public (a backend, subscriptions, quotas) is described in §18.11 as a design note only and is **not** part of M13–M15.
+
+### 18.1 What it does
+
+The user photographs a recipe (cookbook page, magazine, handwritten card, or a screenshot). The app sends the photo(s) to Claude, gets the recipe back as structured JSON, matches it to the ingredient library, and opens the normal meal editor pre-filled for review. **Nothing is saved until the user taps Save.**
+
+```
+Meals tab ＋ ▸ "Import from Photo"
+   │
+   ▼
+RecipeImportView ── add 1–3 pages (camera / library) ── "Read Recipe"
+   │
+   ▼
+ImageProcessor.prepareForUpload ─► ClaudeRecipeExtractor ─► RecipeExtraction (JSON)
+   │                                        (HTTPS, ~10–40 s)
+   ▼
+RecipeImportMapper (pure) ── library snapshot ─► MealDraft + ImportReport
+   │
+   ▼
+MealEditorView (review mode) ── user fixes anything flagged ── Save
+   │
+   ▼
+MealStore.create ── creates any new ingredients ─► Meal saved
+```
+
+### 18.2 Decisions
+
+| Topic | Decision |
+|-------|----------|
+| Extraction engine | **Claude API** (`claude-opus-5`), sent the photos directly, with **structured outputs** (`output_config.format` JSON schema), so the reply always parses. Behind a `RecipeExtracting` protocol so an on-device engine (e.g. Apple Vision + Foundation Models) can be added later. |
+| Transport | Raw HTTPS with `URLSession` (there is no official Anthropic Swift SDK). **No third-party packages.** |
+| API key (M13–M15) | Entered by the user in Settings, stored in the **Keychain**. Never hard-coded, never logged, never committed. |
+| Unit handling | Claude picks a unit from a fixed list (our `IngredientUnit` cases plus a few imperial units and `other`). The app converts imperial units deterministically (§18.6) so conversions are testable. |
+| Ingredient matching | The prompt includes the user's existing ingredient names so Claude reuses them. The app then matches deterministically (§18.7). Unmatched ingredients become **pending new ingredients**, created only on Save. |
+| Review | Always shown. Flags draw attention to new ingredients, approximate matches, converted or unrecognised units, and warnings from Claude. |
+| Privacy | A one-time consent sheet explains that photos are sent to Anthropic to read the recipe. |
+| Pages | 1–3 photos per import, sent in one request, in order. |
+
+### 18.3 Files
+
+```
+Domain/
+  RecipeExtraction.swift        # Codable types mirroring the JSON schema (§18.5)
+  RecipeExtractionSchema.swift  # the JSON schema as a static string/dictionary
+  ImportUnitConverter.swift     # imperial → metric rules (§18.6)
+  RecipeImportMapper.swift      # extraction + library snapshot → MealDraft + ImportReport (§18.7)
+Services/
+  RecipeExtracting.swift        # protocol
+  ClaudeRecipeExtractor.swift   # URLSession implementation (§18.4)
+  APIKeyStore.swift             # Keychain wrapper
+  ImageProcessor.swift          # + prepareForUpload(_:) (§18.4)
+Features/
+  Import/
+    RecipeImportView.swift      # page capture + "Read Recipe" + progress/errors (§18.9)
+    ImportConsentSheet.swift
+    ImportReviewBanner.swift    # shown at the top of MealEditorView in review mode
+  Settings/
+    RecipeImportSettingsSection.swift
+MealPlannerTests/
+  Fixtures/                     # canned API responses (§18.10)
+```
+
+**Changes to existing code**
+
+- `RecipeLineDraft` (value type, **no SwiftData schema change**):
+  ```swift
+  struct PendingIngredient: Equatable { var name: String; var defaultUnit: IngredientUnit; var category: ShoppingCategory }
+
+  struct RecipeLineDraft: Identifiable, Equatable {
+      let id: UUID
+      var ingredientID: UUID?               // nil ⇔ pendingIngredient != nil
+      var pendingIngredient: PendingIngredient?
+      var ingredientName: String            // display cache (library name or pending name)
+      var quantity: Double?
+      var unit: IngredientUnit
+      var note: String
+      var importFlags: Set<ImportFlag> = [] // §18.7; empty for manually added lines
+      var originalText: String? = nil       // the line as printed, for review
+  }
+  ```
+- `MealDraft` gains `var importWarnings: [String] = []` (not saved to the model).
+- `MealDraft.isValid` additionally requires every line to have either `ingredientID` or a `pendingIngredient` with a non-empty clean name.
+- `MealStore.create/update`: before building recipe lines, resolve each pending ingredient with `IngredientStore.findOrCreate(name:defaultUnit:category:)` (reuses an ingredient if one with the same name was added in the meantime). All of this happens in the same save.
+- `RecipeIngredientForm` in `.edit` mode supports pending lines. The header shows "New ingredient", with an editable **Name** and **Aisle**, plus **"Use Existing Ingredient…"**, which opens `IngredientPickerSheet` and replaces the pending ingredient with the chosen library ingredient (clears `pendingIngredient` and the `.newIngredient`/`.approximateMatch` flags).
+- `MealEditorView` gains an optional `importReport: ImportReport?`. When set: the title is "Review Recipe", `ImportReviewBanner` is shown at the top, rows show flag badges, and Cancel **always** asks "Discard Imported Recipe?".
+- Meals tab `+` becomes a `Menu`: "New Meal" / "Import from Photo". The empty state gets a third button, "Import from Photo".
+- Settings gains the "Recipe Import" section (§18.8).
+
+### 18.4 API request
+
+**Photos:** `ImageProcessor.prepareForUpload(_ data: Data) async throws -> Data` (`@concurrent nonisolated`) returns a JPEG with the long edge ≤ 1568 px, quality 0.8, orientation applied (same ImageIO approach as §8.5). Pages keep the order the user added them in.
+
+**Endpoint and headers**
+
+```
+POST https://api.anthropic.com/v1/messages
+content-type: application/json
+x-api-key: <key from Keychain>
+anthropic-version: 2023-06-01
+anthropic-beta: server-side-fallback-2026-07-01
+```
+
+**Body** (built with `JSONSerialization` or `Encodable`; the schema is §18.5)
+
+```json
+{
+  "model": "claude-opus-5",
+  "max_tokens": 16000,
+  "fallbacks": "default",
+  "system": "<SYSTEM PROMPT below>",
+  "output_config": {
+    "format": { "type": "json_schema", "schema": { "...": "§18.5" } }
+  },
+  "messages": [{
+    "role": "user",
+    "content": [
+      { "type": "image", "source": { "type": "base64", "media_type": "image/jpeg", "data": "<page 1>" } },
+      { "type": "image", "source": { "type": "base64", "media_type": "image/jpeg", "data": "<page 2>" } },
+      { "type": "text", "text": "<USER PROMPT below>" }
+    ]
+  }]
+}
+```
+
+- `thinking` is omitted: Opus 5 uses adaptive thinking by default.
+- `fallbacks: "default"` with the `server-side-fallback-2026-07-01` header means that if the model declines, the API automatically retries on Anthropic's recommended fallback model within the same call. Check `stop_reason` anyway (§18.4 response handling).
+- `effort` is left at the default. M15 may set `output_config.effort` to `"medium"` **only if** the accuracy check (§18.12 M15) shows no loss in quality. Record the result in `DECISIONS.md`.
+- `URLSessionConfiguration`: `timeoutIntervalForRequest = 120`. The request must be cancellable, because the user can tap Cancel.
+
+**System prompt** (a constant in `ClaudeRecipeExtractor`):
+
+```
+You extract recipes from photos for a UK meal-planning app. Return only data that is
+actually in the photos. If something isn't shown (servings, time), use null rather than
+guessing. The photos may be several pages of one recipe, in order.
+```
+
+**User prompt** (built per request):
+
+```
+Extract the recipe in these photos.
+
+Ingredients:
+- One entry per ingredient. "Salt and pepper" is two entries.
+- name: the generic ingredient only, singular or plural as usually shopped
+  ("Chopped tomatoes", "Onion"). Put preparation and size in note ("finely chopped",
+  "large"). If an ingredient matches one of the EXISTING INGREDIENTS below, use that
+  exact name.
+- quantity: a number in the chosen unit (½ → 0.5). For a range like "2–3" use the
+  larger number and put "2–3" in note. null if no amount is given ("to taste").
+- unit: choose from the allowed values. Use "item" for countable things with no unit
+  ("2 onions"). For "1 x 400g tin chopped tomatoes" use quantity 1, unit "tin",
+  note "400g". Use "other" only if nothing fits, and put the original unit in note.
+- originalText: the ingredient line exactly as printed.
+- aisle: your best guess from the allowed values.
+
+steps: the method, one string per step, without step numbers.
+warnings: short notes for the user about anything unclear, cut off or unreadable.
+isRecipe: false if the photos don't contain a recipe.
+
+EXISTING INGREDIENTS:
+<one name per line, sorted A–Z, max 500>
+```
+
+**Response handling** (check in this order):
+
+| Situation | Handling |
+|-----------|----------|
+| No network / `URLError.notConnectedToInternet` | `ImportError.offline` |
+| User cancelled | `ImportError.cancelled` (no alert) |
+| HTTP 401 / 403 | `ImportError.invalidAPIKey` |
+| HTTP 429, 500, 529, or a timeout | Retry **once** after 2 s, then `ImportError.serviceBusy` |
+| Other non-2xx | `ImportError.unexpected(statusCode)`. Log the status only, never the body or key. |
+| `stop_reason == "refusal"` | `ImportError.declined` |
+| `stop_reason == "max_tokens"` | `ImportError.tooLong` |
+| `stop_reason == "end_turn"` | Take the **first `content` block with `type == "text"`** (ignore other block types, e.g. `fallback`) and decode it as `RecipeExtraction`. A decode failure → `ImportError.unreadableResponse`. |
+| Decoded `isRecipe == false` | `ImportError.noRecipeFound` |
+
+Every `ImportError` has user-facing copy (§18.9).
+
+### 18.5 JSON schema (`RecipeExtractionSchema`)
+
+Every object has `additionalProperties: false` and lists every property in `required` (nullable values use `anyOf` with `null`).
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["isRecipe", "title", "servings", "totalMinutes", "mealTypes", "ingredients", "steps", "notes", "warnings"],
+  "properties": {
+    "isRecipe": { "type": "boolean" },
+    "title": { "type": "string" },
+    "servings": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+    "totalMinutes": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+    "mealTypes": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["breakfast", "lunch", "dinner"] }
+    },
+    "ingredients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "quantity", "unit", "note", "originalText", "aisle"],
+        "properties": {
+          "name": { "type": "string" },
+          "quantity": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+          "unit": {
+            "type": "string",
+            "enum": ["item", "g", "kg", "ml", "l", "tsp", "tbsp", "cup", "clove", "slice", "tin", "pack", "bunch", "handful", "pinch",
+                     "oz", "lb", "fl_oz", "pint", "stick", "other"]
+          },
+          "note": { "type": "string" },
+          "originalText": { "type": "string" },
+          "aisle": {
+            "type": "string",
+            "enum": ["produce", "meatFish", "dairyEggs", "bakery", "pantry", "frozen", "drinks", "household", "other"]
+          }
+        }
+      }
+    },
+    "steps": { "type": "array", "items": { "type": "string" } },
+    "notes": { "type": "string" },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  }
+}
+```
+
+Swift mirror (`RecipeExtraction.swift`): `struct RecipeExtraction: Codable, Equatable, Sendable` with nested `Ingredient` and `enum ExtractedUnit: String, Codable` (all 21 raw values above). Decoding must **fail** on an unknown enum value (no silent defaults), so it surfaces as `unreadableResponse`.
+
+### 18.6 Unit conversion (`ImportUnitConverter`)
+
+```swift
+enum ImportUnitConverter {
+    struct Result: Equatable { let quantity: Double?; let unit: IngredientUnit; let noteSuffix: String?; let flag: ImportFlag? }
+    static func convert(quantity: Double?, unit: ExtractedUnit) -> Result
+}
+```
+
+| Extracted unit | Result unit | Quantity rule | Note suffix | Flag |
+|----------------|-------------|---------------|-------------|------|
+| any of our 15 units | same | unchanged | — | — |
+| `oz` | `g` | × 28.35, round to nearest 5 (min 5) | `"(8 oz)"` | `.unitConverted` |
+| `lb` | `g` | × 453.6, round to nearest 5 | `"(1 lb)"` | `.unitConverted` |
+| `fl_oz` | `ml` | × 28.41 (UK), round to nearest 5 | `"(10 fl oz)"` | `.unitConverted` |
+| `pint` | `ml` | × 568, round to nearest 5 | `"(1 pint)"` | `.unitConverted` |
+| `stick` | `g` | × 113, round to nearest 5 | `"(1 stick)"` | `.unitConverted` |
+| `other` | `item` | unchanged | — (Claude already put the unit in `note`) | `.unitUnrecognised` |
+| any unit with `quantity == nil` | as above | nil | none for conversions | none for conversions (`other` still flags) |
+
+The note suffix uses `QuantityFormatter.number` for the original amount. It is appended to any existing note with a space.
+
+**Tests:** 8 oz → 225 g; 1 lb → 455 g; 0.5 oz → 15 g; 10 fl oz → 285 ml; 1 pint → 570 ml; 1 stick → 115 g; `other` → item + flag; nil quantity for oz → nil, g, no suffix, no flag.
+
+### 18.7 Mapping (`RecipeImportMapper`)
+
+```swift
+enum ImportFlag: String, Hashable, Sendable { case newIngredient, approximateMatch, unitConverted, unitUnrecognised, noQuantity }
+
+struct LibraryEntry: Equatable, Sendable { let id: UUID; let name: String; let defaultUnit: IngredientUnit; let category: ShoppingCategory }
+
+struct ImportReport: Equatable, Sendable {
+    var newIngredientCount: Int
+    var flaggedLineCount: Int
+    var warnings: [String]          // Claude's warnings + mapper warnings, de-duplicated
+}
+
+enum RecipeImportMapper {
+    static let timeOptions = [5, 10, 15, 20, 25, 30, 40, 45, 60, 75, 90, 120, 150, 180]   // same list as MealEditorView
+    static func map(_ extraction: RecipeExtraction, library: [LibraryEntry]) -> (MealDraft, ImportReport)
+}
+```
+
+**Rules**
+
+1. **Title:** `NameNormalizer.clean(title)`. If empty → `"Imported recipe"` plus the warning "No title found — please add one."
+2. **Meal types:** from `mealTypes`. If empty → `[.dinner]` plus the warning "Check which meals this suits."
+3. **Servings:** clamp to 1…12. nil → 2.
+4. **Time:** nil → nil. Otherwise snap to the **nearest** value in `timeOptions` (ties go to the larger value).
+5. **Steps:** trim each step; strip a leading `^\s*(\d+[.)]|step\s*\d+[:.]?)\s*` (case-insensitive); drop empty steps.
+6. **Notes:** `extraction.notes`, trimmed.
+7. **Ingredients**, in the extracted order, for each one:
+   1. Skip it if `NameNormalizer.clean(name)` is empty.
+   2. Convert the unit (§18.6).
+   3. **Match:**
+      - (a) Exact: `NameNormalizer.key(name)` equals a library key → use that library entry.
+      - (b) Approximate: compare `singularKey` of both, where `singularKey` removes a trailing `"es"` if the key ends in `"oes"`, `"ches"` or `"shes"`, otherwise a trailing `"s"` (not `"ss"`). A single match → use it and flag `.approximateMatch`. More than one match → treat as no match.
+      - (c) No match → `pendingIngredient = PendingIngredient(name: clean(name), defaultUnit: convertedUnit, category: aisle)` and flag `.newIngredient`.
+      - Two extracted lines that map to the **same pending name** (by key) share one pending ingredient, and `newIngredientCount` counts it once.
+   4. `quantity == nil` → flag `.noQuantity`.
+   5. `note` = the trimmed extracted note plus the conversion suffix. `originalText` is kept.
+8. **Report:** `flaggedLineCount` = lines with any flag other than `.noQuantity`. Warnings = Claude's warnings (trimmed, non-empty, de-duplicated) followed by mapper warnings.
+9. `photo`/`thumbnail` stay nil (a recipe page is not a photo of the cooked meal).
+
+**Required tests** (a library of Onion, Chopped tomatoes, Garlic, Olive oil):
+
+| Case | Expected |
+|------|----------|
+| "onion" | matched to Onion, no flag |
+| "Onions" | matched to Onion, `.approximateMatch` |
+| "Tomatoes", with "Tomato" and "Tomatoes (tinned)" added to the library | only one singular-key match → matched to Tomato, `.approximateMatch` |
+| "Chorizo" twice | one pending ingredient, `newIngredientCount == 1`, both lines `.newIngredient` |
+| "Salt", quantity nil | `.newIngredient` + `.noQuantity`; `flaggedLineCount` counts it (because of `.newIngredient`) |
+| title "" | "Imported recipe" + warning |
+| totalMinutes 35 / 50 / 200 | 40 / 45 / 180 |
+| steps "1. Heat oil", "Step 2: Fry", "  " | "Heat oil", "Fry" |
+| oz line | converted per §18.6 with `.unitConverted` |
+
+### 18.8 Settings: "Recipe Import" section
+
+- `SecureField("Anthropic API Key")`. On submit → `APIKeyStore.save`.
+  - Keychain: `kSecClassGenericPassword`, service `"MealPlanner.AnthropicAPIKey"`, `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`.
+- Status row: "Not set" / "Saved" / "Checking…" / "Key works ✓" / "Key rejected".
+- **"Test Key"** → `GET https://api.anthropic.com/v1/models?limit=1` with the same auth headers: 200 → works, 401/403 → rejected, other → "Couldn't check — try again".
+- **"Remove Key"** (destructive, with confirmation).
+- Footer: "Photos you import are sent to Anthropic to read the recipe. Your key is stored only on this iPhone. API usage is billed to your Anthropic account (roughly a few cents per recipe)."
+- Never display the stored key. Show `sk-ant-…` plus the last 4 characters.
+
+### 18.9 Screens & copy
+
+**`RecipeImportView`** (sheet with its own `NavigationStack`, title "Import Recipe")
+
+1. **If no API key is set:** a `ContentUnavailableView` "Add your API key" with the description "Recipe import uses Claude to read photos. Add your Anthropic API key in Settings." and the button **Open Settings** (switches to the Settings tab and dismisses).
+2. **If consent hasn't been given** (`@AppStorage("import.consentGiven")`): present `ImportConsentSheet` first. Title "Before you import". Body "Your photos will be sent to Anthropic's Claude service to read the recipe. They aren't saved in the app." Buttons **Continue** (sets consent) and **Cancel**.
+3. **Pages:** a horizontal row of up to 3 page thumbnails, each with a remove button and a "Page N" label.
+   - Buttons: **Take Photo** (camera, one page) and **Choose from Library** (`PhotosPicker`, `maxSelectionCount` = remaining pages).
+   - Tip text: "Lay the page flat, fit the whole recipe in, and use good light."
+4. **"Read Recipe"** (prominent, disabled with 0 pages) → progress state: `ProgressView` with "Reading your recipe…" and the caption "This usually takes under a minute." plus a **Cancel** button.
+5. **Success** → dismiss this sheet and present `MealEditorView(draft:importReport:)`.
+6. **Error** → inline `ContentUnavailableView` with the copy below, plus **Try Again** (keeps pages) and **Close**.
+
+| `ImportError` | Title | Message |
+|---------------|-------|---------|
+| `offline` | You're offline | Connect to the internet and try again. |
+| `invalidAPIKey` | API key not accepted | Check your key in Settings. |
+| `serviceBusy` | Service busy | Claude is busy right now. Try again in a minute. |
+| `declined` | Couldn't read this recipe | Try a different photo. |
+| `tooLong` | Recipe too long | Try importing fewer pages at a time. |
+| `noRecipeFound` | No recipe found | Make sure the photo shows the ingredients and method. |
+| `unreadableResponse`, `unexpected` | Something went wrong | Please try again. |
+
+**Review mode** (`MealEditorView` with `importReport`)
+
+- Title "Review Recipe". Save button "Save Meal".
+- `ImportReviewBanner` (a section at the top of the form):
+  - Headline: "Check everything before saving."
+  - Lines (only when non-zero): "**N new ingredients** will be added to your library.", "**N items** need a quick check."
+  - Then each warning as a bullet (secondary colour).
+- Ingredient rows show badges after the name:
+  - `.newIngredient` → green capsule "New"
+  - `.approximateMatch`, `.unitConverted` or `.unitUnrecognised` → orange capsule "Check"
+  - `.noQuantity` → no badge
+  - Rows with a badge also show `originalText` as a caption: "Printed: 8 oz chorizo, sliced".
+- Editing a flagged line (§18.3) and tapping **Done** clears its `.approximateMatch`/`.unitConverted`/`.unitUnrecognised` flags; the banner counts update live.
+- Cancel → "Discard Imported Recipe?" with **Discard** (destructive) and **Keep Editing**.
+- After saving: push the new meal's detail screen (same path mechanism as Duplicate).
+
+### 18.10 Testing
+
+- **No live API calls in unit tests.** `ClaudeRecipeExtractor` takes a `URLSession` that tests build with a `URLProtocol` stub that serves fixtures.
+- **Fixtures** (`MealPlannerTests/Fixtures/`, JSON Messages API responses):
+  - `extract-success.json`: two pages' worth of ingredients, including oz, "Salt and pepper", a range, and "1 x 400g tin"
+  - `extract-refusal.json`: `stop_reason: "refusal"`
+  - `extract-max-tokens.json`
+  - `extract-not-a-recipe.json`: `isRecipe: false`
+  - `extract-with-fallback-block.json`: a `fallback` block before the `text` block
+  - `extract-bad-json.json`: the text block isn't valid JSON
+- **`ClaudeRecipeExtractorTests`:** the request has the correct URL, the headers (including `anthropic-beta`), `model`, `fallbacks`, `output_config.format.type == "json_schema"`, image blocks in page order followed by the text block, and the existing ingredient names in the prompt. Every row of the §18.4 response table maps to the right result or error. Retry-once on 529 then `serviceBusy`. The API key never appears in logged output.
+- **`ImportUnitConverterTests`**, **`RecipeImportMapperTests`**: every table in §18.6/§18.7.
+- **`MealStoreTests`:** saving a draft with pending ingredients creates each one once, reuses an ingredient created in the meantime with the same name, and links the lines.
+- **`APIKeyStoreTests`:** save / read / delete round-trip (Keychain works in the simulator test host).
+
+### 18.11 Design note: public release (NOT part of M13–M15)
+
+If the app is published with this as a paid feature, change the following. Each needs its own spec update first.
+
+1. **Backend proxy.** The app must not hold an Anthropic key.
+   - Add `ProxyRecipeExtractor: RecipeExtracting`, which sends pages to your own endpoint (e.g. a Cloudflare Worker). The endpoint holds the key, calls Claude with the same request as §18.4, and returns the `RecipeExtraction` JSON.
+   - Remove the Settings API-key section.
+2. **Subscription (StoreKit 2).** An auto-renewable subscription unlocks import.
+   - The app sends the signed transaction (JWS from `Transaction.currentEntitlements`) with each request.
+   - The backend verifies it (signature, or the App Store Server API) before calling Claude.
+3. **Quotas enforced on the server**, keyed by the subscription's original transaction ID: e.g. 30 imports per calendar month, 3 pages per import, and a per-minute rate limit. The app shows the number remaining ("12 imports left this month"). A client-side counter is never trusted.
+4. **Cost controls:** a monthly spend limit on the Anthropic account, logging `usage` tokens per request on the server, and alerts.
+5. **Privacy:** an App Store privacy label (photos sent to a third party), consent before first use, a privacy policy that names Anthropic as a processor.
+
+### 18.12 Milestones (post-MVP)
+
+Same rules as §16: one per session, clean build, all tests passing, criteria reported ✅/❌, commit.
+
+#### M13 — Extraction service
+
+**Read:** §18.1–§18.6, §18.8, §18.10.
+**Build:** `RecipeExtraction`, `RecipeExtractionSchema`, `ImportUnitConverter`, `RecipeExtracting`, `ClaudeRecipeExtractor`, `APIKeyStore`, `ImageProcessor.prepareForUpload`, the Settings "Recipe Import" section, fixtures and tests. A `#if DEBUG` "Test Import" button in Settings that picks a library photo and logs the decoded `RecipeExtraction` (title and ingredient count only).
+- [ ] Every §18.4 response-table row is covered by a fixture test.
+- [ ] Every §18.6 conversion test passes.
+- [ ] The key is stored in the Keychain, masked in the UI, and "Test Key" works with a real key and fails with a fake one.
+- [ ] Grepping the repo finds no key, and no key or response body is written to logs.
+- [ ] The debug import of a real cookbook photo decodes successfully (manual, on a device or the Simulator with a real key).
+
+#### M14 — Mapping & review
+
+**Read:** §18.3, §18.7, §18.9 (review mode), §10.6, §10.7.
+**Build:** `RecipeImportMapper` + tests, the `RecipeLineDraft`/`MealDraft` changes, pending-ingredient support in `RecipeIngredientForm` and `MealStore`, review mode in `MealEditorView`, `ImportReviewBanner`, and badges.
+- [ ] Every §18.7 mapping test passes.
+- [ ] Saving an imported draft creates new ingredients exactly once and never duplicates library ingredients.
+- [ ] "Use Existing Ingredient…" replaces a pending ingredient and clears its flags.
+- [ ] Cancelling an import creates **no** ingredients.
+- [ ] Manually created meals behave exactly as before (existing tests still pass).
+
+#### M15 — Capture flow, polish & accuracy check
+
+**Read:** §18.9, §18.2, §13.
+**Build:** the Meals `+` menu and empty-state entry, `ImportConsentSheet`, `RecipeImportView` (pages, progress, cancel, errors), and navigating to the saved meal. Remove the debug "Test Import" button.
+- [ ] The full flow works on a real iPhone: 2-page cookbook recipe → review → fix one flagged line → save → meal detail.
+- [ ] Cancel during reading stops the request. Airplane mode shows "You're offline".
+- [ ] **Accuracy check:** import 10 real recipes (at least 4 printed cookbook pages, 2 magazine/printout, 2 handwritten cards, 2 website screenshots). For each, record in `DECISIONS.md` the title correct?, ingredients missed or extra, quantities wrong, and steps missing. Target: ≤ 1 error per recipe on printed sources.
+- [ ] Optional effort tuning: repeat the accuracy check with `effort: "medium"`. Adopt it only if there's no loss in accuracy, and record the decision and average time taken.
 
 ---
 
