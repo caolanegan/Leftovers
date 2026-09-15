@@ -1,11 +1,12 @@
 import SwiftUI
 import SwiftData
+import UIKit
 import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlanner", category: "MealPicker")
 
-/// §10.2. The Shuffle button (row re-roll and the picker's own Shuffle
-/// button) is M8 — tapping a meal runs the full leftovers-aware assign flow.
+/// §10.2 — tapping a meal runs the full leftovers-aware assign flow; the
+/// Shuffle button (§10.1) re-rolls the slot the same way row Shuffle does.
 struct MealPickerSheet: View {
     let weekID: String
     let dayIndex: Int
@@ -19,6 +20,7 @@ struct MealPickerSheet: View {
     @State private var showAllMeals = false
     @State private var showingNewMeal = false
     @State private var errorMessage: String?
+    @State private var infoMessage: String?
     @State private var previousWeekMealIDs: Set<UUID> = []
     @State private var pendingLeftoverPrompt: LeftoverOrCookAgainPrompt?
     @State private var pendingDependentPrompt: DependentLeftoversPrompt?
@@ -40,6 +42,14 @@ struct MealPickerSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Button {
+                        shuffle()
+                    } label: {
+                        Label("Pick a Random \(mealType.displayName)", systemImage: "dice")
+                    }
+                }
+
                 Section {
                     Toggle("Show All Meals", isOn: $showAllMeals)
                 }
@@ -90,6 +100,11 @@ struct MealPickerSheet: View {
             }
             .leftoverOrCookAgainDialog($pendingLeftoverPrompt)
             .dependentLeftoversDialog($pendingDependentPrompt)
+            .alert("Something to Note", isPresented: Binding(get: { infoMessage != nil }, set: { if !$0 { infoMessage = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(infoMessage ?? "")
+            }
             .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -189,6 +204,42 @@ struct MealPickerSheet: View {
             dismiss()
         } catch {
             logger.error("Failed to assign meal: \(error, privacy: .public)")
+            errorMessage = "Something went wrong. Please try again."
+        }
+    }
+
+    /// The Shuffle button (§10.1's "picker Shuffle button" / §10.2): same
+    /// re-roll as row Shuffle, then dismiss — never the leftovers prompt
+    /// (§10.3 A), only the dependent-leftovers dialog if replacing a cooked
+    /// meal that has dependents.
+    private func shuffle() {
+        do {
+            let service = WeekPlanService(context: modelContext)
+            guard let meal = try service.randomMeal(for: position) else {
+                infoMessage = MealRandomizer.skippedCandidatesMessage(for: [mealType])
+                return
+            }
+            switch try service.dependentDecision(forCookedAssignmentOf: meal, at: position) {
+            case .needsDependentPrompt(let dependents):
+                pendingDependentPrompt = .make(for: position, dependents: dependents) { action in
+                    self.finishShuffle(meal, dependents: action)
+                }
+            default:
+                finishShuffle(meal, dependents: .keepAsCooked)
+            }
+        } catch {
+            logger.error("Failed to shuffle: \(error, privacy: .public)")
+            errorMessage = "Something went wrong. Please try again."
+        }
+    }
+
+    private func finishShuffle(_ meal: Meal, dependents: DependentLeftoversAction) {
+        do {
+            try WeekPlanService(context: modelContext).assign(meal, at: position, leftoversOf: nil, dependents: dependents)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            dismiss()
+        } catch {
+            logger.error("Failed to shuffle: \(error, privacy: .public)")
             errorMessage = "Something went wrong. Please try again."
         }
     }

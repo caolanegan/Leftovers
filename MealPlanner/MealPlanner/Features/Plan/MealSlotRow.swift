@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// One row in a `DaySection` (§10.1). Shuffle (swipe leading) and the
-/// randomiser aren't built yet — that's M8.
+/// One row in a `DaySection` (§10.1).
 struct MealSlotRow: View {
     let dayName: String   // full weekday, e.g. "Tuesday" — accessibility only
     let dayIndex: Int
@@ -17,6 +16,7 @@ struct MealSlotRow: View {
     let canLeftoversForTomorrowDinner: Bool
     let onTap: () -> Void
     let onRemove: () -> Void
+    let onShuffle: () -> Void
     let onMarkAsLeftovers: () -> Void
     let onMarkAsCooked: () -> Void
     let onLeftoversForTomorrowLunch: () -> Void
@@ -58,6 +58,10 @@ struct MealSlotRow: View {
             } else {
                 Button(action: onTap) { rowContent }
                     .buttonStyle(.plain)
+                    .swipeActions(edge: .leading) {
+                        Button("Shuffle", systemImage: "dice", action: onShuffle)
+                            .tint(.accentColor)
+                    }
                     .swipeActions(edge: .trailing) {
                         if isFilled {
                             Button("Remove", role: .destructive, action: onRemove)
@@ -68,6 +72,7 @@ struct MealSlotRow: View {
                             NavigationLink(value: recipeRoute) {
                                 Label("View Recipe", systemImage: "fork.knife")
                             }
+                            Button("Shuffle", systemImage: "dice", action: onShuffle)
                             if isLeftovers {
                                 Button("Mark as Cooked", action: onMarkAsCooked)
                             } else if canMarkAsLeftovers {

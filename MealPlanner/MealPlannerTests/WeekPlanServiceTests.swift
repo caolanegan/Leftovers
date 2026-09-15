@@ -540,4 +540,94 @@ struct WeekPlanServiceTests {
         }
         #expect(dependents.count == 1)
     }
+
+    // MARK: - Randomize (M8)
+
+    @Test func randomizeFillEmptyOnlyFillsEmptyTargets() throws {
+        let filledMeal = try makeMeal("Chicken fajitas")
+        try service.assign(filledMeal, at: PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner))
+        let targets = (0..<7).map { SlotKey(dayIndex: $0, mealType: .dinner) }
+
+        let outcome = try service.randomize(weekID: "2026-W38", slots: targets, mode: .fillEmpty)
+
+        #expect(outcome.assigned == 6)
+        let plan = try #require(try service.plan(for: "2026-W38"))
+        #expect((plan.slots ?? []).first { $0.dayIndex == 0 }?.meal?.id == filledMeal.id)
+        #expect((plan.slots ?? []).filter { $0.meal != nil }.count == 7)
+    }
+
+    @Test func randomizeExcludesLastWeeksMeals() throws {
+        let lastWeekMeal = try makeMeal("Chicken fajitas")
+        try plantSlot(weekID: "2026-W37", dayIndex: 0, mealType: .dinner, meal: lastWeekMeal)
+        let onlyOtherCandidate = try makeMeal("Veggie chilli")
+        let target = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+
+        _ = try service.randomize(weekID: "2026-W38", slots: [SlotKey(dayIndex: 0, mealType: .dinner)], mode: .fillEmpty)
+
+        let plan = try #require(try service.plan(for: "2026-W38"))
+        let slot = try #require((plan.slots ?? []).first { $0.dayIndex == target.dayIndex })
+        #expect(slot.meal?.id == onlyOtherCandidate.id)
+    }
+
+    @Test func randomizeSkipsTypesWithNoCandidates() throws {
+        let targets = (0..<7).map { SlotKey(dayIndex: $0, mealType: .dinner) }
+
+        let outcome = try service.randomize(weekID: "2026-W38", slots: targets, mode: .fillEmpty)
+
+        #expect(outcome.assigned == 0)
+        #expect(outcome.skippedTypes == [.dinner])
+    }
+
+    @Test func randomizeReplaceAllDeletesDependentsOfReplacedCookedSlots() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        _ = try makeMeal("Veggie chilli")   // a second candidate so replaceAll doesn't just re-pick `meal`
+        let cookedPosition = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        try service.assign(meal, at: cookedPosition)
+        let cookedSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch), leftoversOf: cookedSlot.id)
+
+        let outcome = try service.randomize(weekID: "2026-W38", slots: [SlotKey(dayIndex: 0, mealType: .dinner)], mode: .replaceAll)
+
+        #expect(outcome.removedLeftovers == 1)
+        let plan = try #require(try service.plan(for: "2026-W38"))
+        #expect((plan.slots ?? []).contains { $0.dayIndex == 1 } == false)
+    }
+
+    @Test func randomizeReplaceAllLocksLeftoverTargetsWhoseSourceIsOutsideTheTargets() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let cookedPosition = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        try service.assign(meal, at: cookedPosition)
+        let cookedSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+        let leftoverPosition = PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch)
+        try service.assign(meal, at: leftoverPosition, leftoversOf: cookedSlot.id)
+
+        // Only the leftover slot is a target — its cooked source (Monday dinner) isn't.
+        _ = try service.randomize(weekID: "2026-W38", slots: [SlotKey(dayIndex: 1, mealType: .lunch)], mode: .replaceAll)
+
+        let plan = try #require(try service.plan(for: "2026-W38"))
+        let leftoverSlot = try #require((plan.slots ?? []).first { $0.dayIndex == 1 })
+        #expect(leftoverSlot.leftoverOfSlotID == cookedSlot.id)
+        #expect(leftoverSlot.meal?.id == meal.id)
+    }
+
+    @Test func randomizeOnAnEndedWeekThrows() throws {
+        #expect(throws: AppError.weekIsArchived) {
+            try service.randomize(weekID: "2026-W37", slots: [SlotKey(dayIndex: 0, mealType: .dinner)], mode: .fillEmpty)
+        }
+    }
+
+    @Test func randomMealExcludesLastWeeksMeals() throws {
+        let lastWeekMeal = try makeMeal("Chicken fajitas")
+        try plantSlot(weekID: "2026-W37", dayIndex: 0, mealType: .dinner, meal: lastWeekMeal)
+        let onlyOtherCandidate = try makeMeal("Veggie chilli")
+
+        let meal = try service.randomMeal(for: PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner))
+
+        #expect(meal?.id == onlyOtherCandidate.id)
+    }
+
+    @Test func randomMealReturnsNilWithNoCandidates() throws {
+        let meal = try service.randomMeal(for: PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner))
+        #expect(meal == nil)
+    }
 }

@@ -2,6 +2,13 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-09-15 — M8: Randomiser
+
+- **Row Shuffle and the picker's Shuffle button don't call `WeekPlanService+Randomize.randomize`.** §8.2's bulk algorithm (used by the toolbar 🎲 menu and the day-header 🎲) always deletes a replaced cooked slot's dependents outright — there's no dialog, just the confirmation's extra sentence. But §10.1's row table and §14 ("Removing, changing or shuffling a cooked meal with leftovers → Dialog: remove leftovers too / keep as cooked") both say a single-slot Shuffle needs the same dependent-leftovers dialog as any other reassignment. So single-slot Shuffle (`WeekPlanService.randomMeal(for:)`, new, not in §8.2's given interface) just picks one random meal via `MealRandomizer` and then runs it through the *existing* `dependentDecision`/`assign(dependents:)` flow already built for M6/M7 — same dialog, same choice — rather than the bulk method's unconditional removal.
+- **Confirmation-dialog copy for "Randomise Whole Week" and "Randomise `<Day>`" isn't given verbatim** — §10.1 only spells out the Breakfasts/Lunches/Dinners example ("Fill Empty Dinners", "Replace All Dinners"). Extended the same pattern: whole week uses "Fill Empty Meals" / "Replace All Meals" (matching the existing Copy dialog's "Fill Empty Meals" text); a day uses "Fill Empty `<Day>`" / "Replace All `<Day>`" (e.g. "Fill Empty Monday").
+- **Row Shuffle and the picker's Shuffle button reuse `MealRandomizer.skippedCandidatesMessage`** (new, alongside `MealRandomizer`, mirroring `LeftoverRules`'s own copy-builder precedent) for the "not enough candidates" case on a single slot — same copy as the bulk alert, naming just that one meal type. Not spelled out for the single-slot case, but §14's "Randomise when every candidate was used last week → The slot stays empty, with an explanation alert" applies equally here.
+- **`MealSlotRow`'s leading-swipe Shuffle is offered on every row, filled or empty** — §10.1 marks trailing-swipe Remove "(filled)" explicitly but leaves leading-swipe Shuffle unqualified, and an empty "Add lunch" row can just as usefully be filled by a shuffle. The context-menu Shuffle stays inside the existing "(filled)" block, since the context menu itself only appears for filled rows.
+
 ## 2026-09-15 — M7.1: "Good as Leftovers"
 
 - **`Meal.goodAsLeftovers` added directly to `SchemaV1`, no migration stage**, per M7.1's instruction — the app hasn't been released. The Simulator's existing store (built against the pre-M7.1 schema) failed to open with the new field until the app was deleted from the Simulator and reinstalled; no code change needed, just noted here per the milestone's own instruction to record it.

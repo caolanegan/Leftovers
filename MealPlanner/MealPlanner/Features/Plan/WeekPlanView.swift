@@ -5,7 +5,7 @@ import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlanner", category: "WeekPlan")
 
-/// §10.1. The randomiser (🎲) isn't built yet — that's M8.
+/// §10.1.
 struct WeekPlanView: View {
     @Environment(AppState.self) private var appState
 
@@ -22,6 +22,14 @@ private struct CopyRequest: Identifiable {
     let target: String
 }
 
+private struct RandomizeRequest: Identifiable {
+    let id = UUID()
+    let title: String
+    let itemsLabel: String
+    let targets: [SlotKey]
+    let hasDependents: Bool
+}
+
 private struct WeekPlanContentView: View {
     let weekID: String
 
@@ -31,6 +39,7 @@ private struct WeekPlanContentView: View {
     @State private var pickerPosition: PlanPosition?
     @State private var pendingClearWeek = false
     @State private var pendingCopy: CopyRequest?
+    @State private var pendingRandomize: RandomizeRequest?
     @State private var pendingDependentRemoval: DependentLeftoversPrompt?
     @State private var infoMessage: String?
     @State private var errorMessage: String?
@@ -94,9 +103,11 @@ private struct WeekPlanContentView: View {
                         context: context,
                         onSelect: { pickerPosition = $0 },
                         onRemove: { remove(at: $0) },
+                        onShuffle: { shuffle(at: $0) },
                         onMarkAsLeftovers: { markAsLeftovers(at: $0) },
                         onMarkAsCooked: { markAsCooked(at: $0) },
-                        onAddLeftovers: { addLeftovers(from: $0, to: $1) }
+                        onAddLeftovers: { addLeftovers(from: $0, to: $1) },
+                        onRandomizeDay: { randomizeDayTapped($0) }
                     )
                 }
             }
@@ -120,6 +131,11 @@ private struct WeekPlanContentView: View {
         .navigationTitle("Plan")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if !isReadOnly {
+                ToolbarItem(placement: .primaryAction) {
+                    RandomizeMenu(onSelect: { randomizeScopeTapped($0) })
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     if isReadOnly {
@@ -160,6 +176,18 @@ private struct WeekPlanContentView: View {
             Button("Cancel", role: .cancel) {}
         } message: { _ in
             Text("Fill Empty Meals keeps what's already planned. Replace This Week removes it first.")
+        }
+        .confirmationDialog(
+            pendingRandomize?.title ?? "",
+            isPresented: Binding(get: { pendingRandomize != nil }, set: { if !$0 { pendingRandomize = nil } }),
+            titleVisibility: .visible,
+            presenting: pendingRandomize
+        ) { request in
+            Button("Fill Empty \(request.itemsLabel)") { performRandomize(targets: request.targets, mode: .fillEmpty) }
+            Button("Replace All \(request.itemsLabel)", role: .destructive) { performRandomize(targets: request.targets, mode: .replaceAll) }
+            Button("Cancel", role: .cancel) {}
+        } message: { request in
+            Text(randomizeMessage(hasDependents: request.hasDependents))
         }
         .dependentLeftoversDialog($pendingDependentRemoval)
         .task(id: weekID) {
@@ -241,6 +269,109 @@ private struct WeekPlanContentView: View {
             try WeekPlanService(context: modelContext).addLeftovers(from: source, to: target)
         } catch {
             logger.error("Failed to add leftovers: \(error, privacy: .public)")
+            errorMessage = "Something went wrong. Please try again."
+        }
+    }
+
+    // MARK: - Randomising (§10.1)
+
+    private func randomizeScopeTapped(_ scope: RandomizeScope) {
+        switch scope {
+        case .wholeWeek:
+            startRandomize(title: "Randomise Whole Week", itemsLabel: "Meals", targets: allSlotKeys())
+        case .mealType(let type):
+            startRandomize(title: "Randomise \(type.pluralName)", itemsLabel: type.pluralName, targets: (0..<7).map { SlotKey(dayIndex: $0, mealType: type) })
+        }
+    }
+
+    private func randomizeDayTapped(_ dayIndex: Int) {
+        let dayName = WeekMath.fullDayName(dayIndex)
+        startRandomize(title: "Randomise \(dayName)", itemsLabel: dayName, targets: MealType.allCases.map { SlotKey(dayIndex: dayIndex, mealType: $0) })
+    }
+
+    private func allSlotKeys() -> [SlotKey] {
+        (0..<7).flatMap { day in MealType.allCases.map { SlotKey(dayIndex: day, mealType: $0) } }
+    }
+
+    /// Runs `.fillEmpty` straight away if none of the targets are filled;
+    /// otherwise asks Fill Empty / Replace All (§10.1).
+    private func startRandomize(title: String, itemsLabel: String, targets: [SlotKey]) {
+        guard anyFilled(targets) else {
+            performRandomize(targets: targets, mode: .fillEmpty)
+            return
+        }
+        pendingRandomize = RandomizeRequest(title: title, itemsLabel: itemsLabel, targets: targets, hasDependents: hasDependents(targets))
+    }
+
+    private func anyFilled(_ targets: [SlotKey]) -> Bool {
+        let slots = plan?.slots ?? []
+        return targets.contains { key in
+            slots.contains { $0.dayIndex == key.dayIndex && $0.mealType == key.mealType && $0.meal != nil }
+        }
+    }
+
+    /// Whether replacing these targets would remove leftovers that depend on
+    /// one of them — the dialog's extra sentence (§10.1) only applies then.
+    private func hasDependents(_ targets: [SlotKey]) -> Bool {
+        let service = WeekPlanService(context: modelContext)
+        return targets.contains { key in
+            let position = PlanPosition(weekID: weekID, dayIndex: key.dayIndex, mealType: key.mealType)
+            return ((try? service.dependentLeftovers(of: position)) ?? []).isEmpty == false
+        }
+    }
+
+    private func randomizeMessage(hasDependents: Bool) -> String {
+        var message = "Meals planned last week won't be picked."
+        if hasDependents {
+            message += " Leftovers linked to replaced meals will be removed."
+        }
+        return message
+    }
+
+    private func performRandomize(targets: [SlotKey], mode: RandomizeMode) {
+        do {
+            let outcome = try WeekPlanService(context: modelContext).randomize(weekID: weekID, slots: targets, mode: mode)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            if !outcome.skippedTypes.isEmpty {
+                infoMessage = MealRandomizer.skippedCandidatesMessage(for: outcome.skippedTypes)
+            } else if outcome.assigned == 0 {
+                infoMessage = "Nothing to randomise — those meals are already planned."
+            }
+        } catch {
+            logger.error("Failed to randomize: \(error, privacy: .public)")
+            errorMessage = "Something went wrong. Please try again."
+        }
+    }
+
+    /// Row Shuffle (swipe, context menu): a single re-roll via `.replaceAll`,
+    /// still going through the normal dependent-leftovers dialog (§10.1, §14).
+    private func shuffle(at position: PlanPosition) {
+        do {
+            let service = WeekPlanService(context: modelContext)
+            guard let meal = try service.randomMeal(for: position) else {
+                infoMessage = MealRandomizer.skippedCandidatesMessage(for: [position.mealType])
+                return
+            }
+            switch try service.dependentDecision(forCookedAssignmentOf: meal, at: position) {
+            case .needsDependentPrompt(let dependents):
+                pendingDependentRemoval = .make(for: position, dependents: dependents) { action in
+                    self.finishShuffle(meal, at: position, dependents: action)
+                }
+            default:
+                finishShuffle(meal, at: position, dependents: .keepAsCooked)
+            }
+        } catch {
+            logger.error("Failed to shuffle: \(error, privacy: .public)")
+            errorMessage = "Something went wrong. Please try again."
+        }
+    }
+
+    private func finishShuffle(_ meal: Meal, at position: PlanPosition, dependents: DependentLeftoversAction) {
+        do {
+            try WeekPlanService(context: modelContext).assign(meal, at: position, leftoversOf: nil, dependents: dependents)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } catch {
+            logger.error("Failed to shuffle: \(error, privacy: .public)")
             errorMessage = "Something went wrong. Please try again."
         }
     }

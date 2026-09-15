@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// One weekday's 3 `MealSlotRow`s (§10.1). The section-header dice ("Randomise
-/// <Day>") arrives with the randomiser in M8.
+/// One weekday's 3 `MealSlotRow`s (§10.1).
 struct DaySection: View {
     let weekID: String
     let dayIndex: Int
@@ -13,9 +12,11 @@ struct DaySection: View {
     let context: PlanWeekContext
     let onSelect: (PlanPosition) -> Void
     let onRemove: (PlanPosition) -> Void
+    let onShuffle: (PlanPosition) -> Void
     let onMarkAsLeftovers: (PlanPosition) -> Void
     let onMarkAsCooked: (PlanPosition) -> Void
     let onAddLeftovers: (_ from: PlanPosition, _ to: PlanPosition) -> Void
+    let onRandomizeDay: (Int) -> Void
 
     /// A stable id for this day's header, distinct from its rows, so
     /// `ScrollViewReader` can scroll the header itself into view — scrolling
@@ -40,6 +41,7 @@ struct DaySection: View {
                     canLeftoversForTomorrowDinner: flags.leftoversForTomorrowDinner,
                     onTap: { onSelect(position) },
                     onRemove: { onRemove(position) },
+                    onShuffle: { onShuffle(position) },
                     onMarkAsLeftovers: { onMarkAsLeftovers(position) },
                     onMarkAsCooked: { onMarkAsCooked(position) },
                     onLeftoversForTomorrowLunch: { onAddLeftovers(position, tomorrowPosition(mealType: .lunch)) },
@@ -47,8 +49,19 @@ struct DaySection: View {
                 )
             }
         } header: {
-            Text(headerText)
-                .id(Self.headerID(dayIndex: dayIndex))
+            HStack {
+                Text(headerText)
+                    .id(Self.headerID(dayIndex: dayIndex))
+                if !isReadOnly {
+                    Spacer()
+                    Button {
+                        onRandomizeDay(dayIndex)
+                    } label: {
+                        Image(systemName: "dice")
+                    }
+                    .accessibilityLabel("Randomise")
+                }
+            }
         }
     }
 

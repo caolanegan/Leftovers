@@ -4,8 +4,8 @@ import SwiftData
 enum DependentLeftoversAction { case remove, keepAsCooked }
 struct CopyResult { let copied: Int; let skippedDeletedMeals: Int }
 
-/// `+Randomize` and `+Shopping` extensions (§8.2) arrive in M8–M9.
-/// `+Leftovers` (M7) lives alongside this core: reading, slots and copy.
+/// `+Shopping` extension (§8.2) arrives in M9. `+Leftovers` (M7) and
+/// `+Randomize` (M8) live alongside this core: reading, slots and copy.
 @MainActor
 struct WeekPlanService {
     let context: ModelContext
