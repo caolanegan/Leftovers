@@ -1,6 +1,6 @@
 # MealPlanner — Product & Technical Specification
 
-> **Version:** 1.2 (MVP + post-MVP §18) · **Date:** 2026-09-15 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
+> **Version:** 1.3 (MVP + post-MVP §18) · **Date:** 2026-09-15 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
 >
 > **To the implementing model:** This document is the source of truth. Build the app **one milestone at a time** (§16). Each milestone lists the spec sections it needs and the acceptance criteria that must pass before it counts as done. If something here is ambiguous, pick the simplest option that fits the spec and write it down in `DECISIONS.md`. Do **not** add features that are not in this document.
 
@@ -8,6 +8,7 @@
 
 | Version | Changes |
 |---------|---------|
+| 1.3 | **"Good as Leftovers"** toggle per meal: the leftovers prompt and leftover actions only appear for meals that keep well (§3, §6.4, §7.7, §8.2, §10.1, §10.3, §10.6, §14, Appendix A). New milestone **M7.1**. |
 | 1.2 | Added §18, **post-MVP** recipe photo import via the Claude API (milestones M13–M15). Nothing in M1–M12 changes. |
 | 1.1 | Past weeks become a frozen record (§6.7, §7.8, §8.1). A master ingredient library, with shopping-list merging by ingredient ID instead of name (§6.4, §10.9). Shopping items can be added by hand (§10.11). Leftovers (§7.7, §10.3). Randomising: last week's meals are excluded; randomise by meal type; re-roll a single slot (§7.6, §10.1). Meal photos (§8.5, §10.6). WhatsApp via `wa.me` links, including sending straight to a saved contact (§12). The "need more" logic is now explained in plain English (§7.5). |
 | 1.0 | First version. |
@@ -73,7 +74,7 @@ MealPlanner is a clean, minimal, native iPhone app. It helps a household decide 
 | F4 | **Meal photos** from the camera or the photo library | §8.5, §10.6 |
 | F5 | Weekly plan (Mon–Sun) × (breakfast, lunch, dinner). Any slot can be left empty. | §10.1 |
 | F6 | Add meals to the plan from the Plan screen or from a meal's detail screen | §10.2, §10.8 |
-| F7 | **Leftovers:** a slot can be leftovers of an earlier meal, which adds nothing to the shopping list | §7.7, §10.3 |
+| F7 | **Leftovers:** a slot can be leftovers of an earlier meal, which adds nothing to the shopping list. Only offered for meals marked "Good as Leftovers". | §7.7, §10.3 |
 | F8 | **Randomise:** whole week, one meal type for the week (e.g. all dinners), one day, or one slot. Last week's meals are never picked. | §7.6, §10.1 |
 | F9 | **Week history:** past weeks are read-only records. Last week can be copied into this week. | §6.7, §10.1 |
 | F10 | Live shopping list: amounts added together by ingredient, grouped by aisle, tick-off with "need more" detection | §7.4, §7.5, §10.10 |
@@ -106,7 +107,7 @@ MealPlanner is a clean, minimal, native iPhone app. It helps a household decide 
 | **Ingredients** | A master library of `Ingredient` records. Recipes and hand-added shopping items **point to** library ingredients. The shopping list merges by ingredient **ID**, never by comparing names. Each ingredient has a unique name (ignoring case and spacing). The aisle belongs to the ingredient; the amount and unit belong to each recipe line. |
 | Meal types | A meal can suit one or more of breakfast, lunch and dinner. At least one is required. |
 | Plan slots | At most one meal per (week, day, meal type). An empty slot has no database row. |
-| **Leftovers** | A slot can be marked as leftovers of an earlier "cooked" slot with the same meal, up to 3 days before. Leftover slots add **nothing** to the shopping list. When the user plans a meal that was cooked in the previous 3 days, the app asks "Leftovers or cook again?" |
+| **Leftovers** | A slot can be marked as leftovers of an earlier "cooked" slot with the same meal, up to 3 days before. Leftover slots add **nothing** to the shopping list. When the user plans a meal that was cooked in the previous 3 days, the app asks "Leftovers or cook again?" **Only for meals with "Good as Leftovers" switched on** (default on; off for things like scrambled eggs). For other meals, planning them again is always a normal cooked meal, with no prompt and no leftover actions. |
 | **Randomiser** | Never picks a meal that was planned in the **previous week**, even if that leaves a slot empty. Tries not to repeat meals within the week. Never creates leftovers and never overwrites leftover slots unless their source meal is being replaced. |
 | Same meal cooked twice | If a meal is in two *cooked* slots, its ingredients count twice. |
 | Shopping list | Worked out live for current and future weeks; only tick states are saved. Ended weeks show their archived snapshot. |
@@ -415,6 +416,7 @@ final class Meal {
     var totalMinutes: Int? = nil
     var notes: String = ""
     var isFavorite: Bool = false
+    var goodAsLeftovers: Bool = true                              // §7.7: false = never offered as leftovers
     @Attribute(.externalStorage) var photoData: Data? = nil       // JPEG, long edge ≤ 1600 px
     @Attribute(.externalStorage) var thumbnailData: Data? = nil   // JPEG, 300×300
     var createdAt: Date = Date.now
@@ -845,6 +847,8 @@ enum LeftoverRules {
 
 `occurrences` covers the target's week and the previous week, so Sunday dinner → Monday lunch works.
 
+**"Good as Leftovers" (v1.3):** `LeftoverRules` stays a pure function of occurrences and doesn't know about the flag. The **service** applies it: when the meal's `goodAsLeftovers` is false, `WeekPlanService.leftoverSourceCandidates` returns `[]` without calling `LeftoverRules`. Everything built on candidates (prompt A, "Mark as Leftovers") then disappears automatically.
+
 **Tests:** Mon dinner → Tue lunch is a candidate; Mon dinner → Fri dinner is not (4 days); Sun dinner (W38) → Mon lunch (W39) is a candidate; Tue lunch → Mon dinner is not (it comes later); a leftovers slot is never a candidate; same-day dinner → lunch is not (dinner is later).
 
 ### 7.8 `ArchiveSnapshots`
@@ -1033,13 +1037,16 @@ struct CopyResult { let copied: Int; let skippedDeletedMeals: Int }
 
 ```swift
 extension WeekPlanService {
-    func leftoverSourceCandidates(mealID: UUID, target: PlanPosition) throws -> [PlanOccurrence]
+    func leftoverSourceCandidates(mealID: UUID, target: PlanPosition) throws -> [PlanOccurrence]  // [] if the meal isn't goodAsLeftovers
     func markAsLeftovers(at position: PlanPosition) throws   // uses nearest candidate; no-op if none
     func markAsCooked(at position: PlanPosition) throws
-    func addLeftovers(from source: PlanPosition, to target: PlanPosition) throws  // target must be empty & editable
+    func addLeftovers(from source: PlanPosition, to target: PlanPosition) throws  // target must be empty & editable; no-op if the meal isn't goodAsLeftovers
     func sourceLabel(for slot: MealSlot) throws -> String?   // "Mon dinner"
 }
 ```
+
+- **Turning "Good as Leftovers" off doesn't change existing plans.** Slots already marked as leftovers of that meal stay leftovers, and still offer "Mark as Cooked". Only *new* prompts and actions are suppressed.
+- The randomiser never creates leftovers, so the flag doesn't affect it. `copyWeek` copies leftover links as it always has.
 
 **`WeekPlanService+Randomize.swift`**
 
@@ -1077,7 +1084,7 @@ extension WeekPlanService {
 @MainActor struct MealStore {
     func create(from draft: MealDraft) throws -> Meal
     func update(_ meal: Meal, from draft: MealDraft) throws   // replaces recipe lines + steps; sets photo; updatedAt
-    func duplicate(_ meal: Meal) throws -> Meal               // "<name> (copy)", same photo, not favourite
+    func duplicate(_ meal: Meal) throws -> Meal               // "<name> (copy)", same photo and goodAsLeftovers, not favourite
     func toggleFavorite(_ meal: Meal) throws
     func delete(_ meal: Meal) throws                          // §6.6 rules
     func upcomingPlanCount(for meal: Meal) -> Int             // slots in non-archived weeks
@@ -1214,8 +1221,8 @@ Wireframes show layout intent only. Use standard components.
 - **Context menu** (filled):
   - "View Recipe"
   - "Shuffle"
-  - "Mark as Leftovers" (cooked, with a candidate) or "Mark as Cooked" (leftovers)
-  - "Leftovers for Tomorrow's Lunch" and "Leftovers for Tomorrow's Dinner" (cooked only, shown when that slot is empty and editable; Sunday → next week's Monday)
+  - "Mark as Leftovers" (cooked, meal is Good as Leftovers, with a candidate) or "Mark as Cooked" (leftovers, always shown)
+  - "Leftovers for Tomorrow's Lunch" and "Leftovers for Tomorrow's Dinner" (cooked only, **meal is Good as Leftovers**, shown when that slot is empty and editable; Sunday → next week's Monday)
   - "Remove"
 - VoiceOver: "Tuesday lunch, Spaghetti bolognese, leftovers from Monday dinner".
 
@@ -1251,7 +1258,7 @@ Wireframes show layout intent only. Use standard components.
 
 ### 10.3 Leftovers prompts (shared)
 
-**A. "Leftovers or cook again?"** Shown when assigning meal M to a slot that has source candidates (from the picker, Add to Plan, or New Meal → assign):
+**A. "Leftovers or cook again?"** Shown when assigning meal M to a slot that has source candidates (from the picker, Add to Plan, or New Meal → assign). **Never shown for a meal with "Good as Leftovers" switched off**, because it has no candidates (§7.7); it's assigned as cooked straight away (after dialog B if needed).
 - `confirmationDialog` title: "Leftovers or cook again?"
 - Message: "Spaghetti bolognese is planned for Mon dinner. Leftovers won't add anything to your shopping list."
 - Buttons: **"Leftovers from Mon Dinner"** (nearest candidate), **"Cook Again"**, **Cancel**.
@@ -1326,6 +1333,7 @@ struct MealDraft: Equatable {
     var lines: [RecipeLineDraft] = []
     var steps: [StepDraft] = []
     init(); init(meal: Meal)
+    var goodAsLeftovers = true
     var isValid: Bool                  // clean name non-empty && mealTypes non-empty
     func normalized() -> MealDraft
 }
@@ -1349,7 +1357,7 @@ struct StepDraft: Identifiable, Equatable { let id: UUID; var text: String }
    - After picking: show a `ProgressView` overlay, run `ImageProcessor.prepare`, then set `draft.photo` and `draft.thumbnail`. On failure, alert "That photo couldn't be used. Please try another."
    - Camera permission: if `AVCaptureDevice.authorizationStatus(for: .video) == .denied`, alert "Camera access is off" with **Open Settings**.
 2. **Details:** Name (autofocus on create), `Stepper` "Serves N" (1…12), Time `Picker` (Not set, 5, 10, 15, 20, 25, 30, 40, 45, 60, 75, 90, 120, 150, 180).
-3. **Suitable For:** 3 toggles, with a red footer "Choose at least one." when none are on.
+3. **Suitable For:** 3 toggles, with a red footer "Choose at least one." when none are on. Below them, in the same section, `Toggle("Good as Leftovers")` with the icon `arrow.uturn.backward`. Footer: "When on, planning this meal again within 3 days asks if it's leftovers." When the "Choose at least one." error is showing, show that first, then the leftovers footer.
 4. **Ingredients:** rows show name, note caption and amount. Tap → `RecipeIngredientForm` (edit). Swipe to delete, `.onMove` to reorder. "＋ Add Ingredient" → §10.7 flow.
 5. **Method:** numbered `TextField(axis: .vertical)` rows, delete and reorder, "＋ Add Step".
 6. **Notes:** `TextField(axis: .vertical)`, `lineLimit(3...8)`.
@@ -1578,7 +1586,8 @@ To find the top-most view controller: take the key window of the foreground-acti
 | Same ingredient with different units | One row: "2 + 200 g". |
 | Ticked item, then more is needed | "Need X more" (§7.5). |
 | Hand-added item for an ingredient also in a recipe | Merged into one row. Caption includes "Added by you". |
-| Meal planned again within 3 days | Prompt "Leftovers or cook again?" |
+| Meal planned again within 3 days | Prompt "Leftovers or cook again?", but only if the meal is Good as Leftovers. Otherwise it's cooked, with no prompt. |
+| "Good as Leftovers" switched off for a meal that already has leftover slots | Those slots stay leftovers (and still show "Mark as Cooked"). No new leftover prompts or actions for that meal. |
 | Meal planned again after 4+ days | No prompt. It's cooked. |
 | Leftovers slot planned before its cooked meal | Not offered. The user can plan the cooked meal first, then use "Mark as Leftovers". |
 | Removing, changing or shuffling a cooked meal with leftovers | Dialog: remove leftovers too / keep as cooked. |
@@ -1618,7 +1627,7 @@ Mark every suite `@MainActor`. Use `#expect` / `#require`, and `@Test(arguments:
 | `WhatsAppLinkTests` | §7.10 |
 | `ArchiveServiceTests` | §8.1 tests (in-memory container, injected `now`) |
 | `WeekPlanServiceTests` | assign replaces; clearSlot; dependents remove/keep; copyWeek fill/replace/remap leftovers/skip deleted; leftover slots add no shopping lines; manual items merge; setChecked stores amounts; randomize excludes the previous week and removes dependent leftovers on replace |
-| `MealStoreTests` | create/update round-trip; delete keeps archived snapshots; duplicate; addSampleMeals is idempotent |
+| `MealStoreTests` | create/update round-trip (including `goodAsLeftovers`); delete keeps archived snapshots; duplicate copies `goodAsLeftovers`; addSampleMeals is idempotent and sets `goodAsLeftovers` per Appendix A |
 | `IngredientStoreTests` | §8.4 tests |
 
 ### 15.2 Manual QA checklist
@@ -1629,6 +1638,7 @@ Mark every suite `@MainActor`. Use `#expect` / `#require`, and `@Test(arguments:
 - [ ] Create "Onions" → merge into "Brown onion" → the recipes that used it now show "Brown onion".
 - [ ] Plan Mon dinner Bolognese → plan Tue lunch Bolognese → choose Leftovers → the shopping list amounts don't change.
 - [ ] Remove Mon dinner → the dialog appears → choosing "Keep as Cooked Meal" makes Tue lunch add its ingredients.
+- [ ] Plan Scrambled eggs on toast for Mon breakfast and Wed breakfast → **no** leftovers prompt, and the eggs count twice.
 - [ ] Randomise Dinners → no dinner is one of last week's meals → Shuffle Tuesday dinner → only Tuesday changes.
 - [ ] Tick chicken → add another chicken meal → "Need X more" appears.
 - [ ] Add "Toilet roll 1 pack" by hand → it's under Household with "Added by you", and it's included in the export.
@@ -1705,6 +1715,26 @@ Do these **in order**, one per session. Each milestone ends with a clean build, 
 - [ ] "Leftovers for Tomorrow's Lunch/Dinner" works.
 - [ ] Both dependent-leftovers dialog options work.
 - [ ] `LeftoverRulesTests` + related service tests pass.
+
+### M7.1 — "Good as Leftovers" (added in v1.3)
+
+Do this **after M7 (and its fixes) and before M8**.
+
+**Read:** §3 (Leftovers row), §6.4 (`Meal.goodAsLeftovers`), §7.7 (the v1.3 note), §8.2 (`+Leftovers` and the bullets under it), §8.3 (`duplicate`), §10.1 (context menu), §10.3 A, §10.6 (Suitable For + `MealDraft`), §14, Appendix A.2.
+**Build:**
+- `Meal.goodAsLeftovers` (default `true`).
+  - Add it to `SchemaV1` directly: the app hasn't been released, so no migration stage is needed.
+  - If the existing Simulator store fails to open, delete the app from the Simulator.
+  - Record this in `DECISIONS.md`.
+- `MealDraft.goodAsLeftovers`, round-tripped by `MealStore.create/update/duplicate`.
+- The editor toggle and footer.
+- Service gating in `leftoverSourceCandidates` and `addLeftovers`, plus hiding the context menu leftover actions.
+- `SampleData` values from Appendix A.2.
+- [ ] Toggle off → planning the meal again within 3 days assigns it as cooked with no prompt (in the picker and Add to Plan). The dependent-leftovers dialog still appears when replacing a cooked meal that has leftovers.
+- [ ] Toggle off → "Mark as Leftovers" and "Leftovers for Tomorrow's …" aren't offered for that meal. Existing leftover slots stay and still offer "Mark as Cooked".
+- [ ] Service tests: `leftoverSourceCandidates` returns `[]` and `addLeftovers` is a no-op when the flag is off. `assignmentDecision` goes straight to `.readyToAssign`/`.needsDependentPrompt`.
+- [ ] `MealStoreTests` cover create/update/duplicate and the sample data values.
+- [ ] Manual: Scrambled eggs on toast (example meal) on Mon and Wed breakfast → no prompt.
 
 ### M8 — Randomiser
 
@@ -2236,6 +2266,8 @@ Used by `MealStore.addSampleMeals()` (through `IngredientStore.findOrCreate`) an
 ### A.2 Meals (8)
 
 Format: *name* (types, serves, minutes) → `ingredient | qty | unit | note` → steps.
+
+**Good as Leftovers** (v1.3): **on** for Tomato soup, Spaghetti bolognese, Chicken fajitas and Veggie chilli. **Off** for Overnight oats, Scrambled eggs on toast, Chicken Caesar wrap and Eat out.
 
 1. **Overnight oats** (breakfast, 1, 5)
    - Rolled oats | 50 | g
