@@ -39,3 +39,18 @@ xcodebuild -project MealPlanner.xcodeproj -scheme MealPlanner -destination 'plat
 - UI copy is **British English**. Code identifiers are **US English**.
 - Standard SwiftUI components, SF Symbols, system colours and text styles only. Every icon-only button has an `accessibilityLabel`.
 - Don't use APIs newer than iOS 18 without `if #available`.
+
+## Data model changes (schema versioning)
+
+The app now holds real user data, so a model change must never make an existing store fail to open or lose data.
+
+- **`SchemaV1` is frozen. Never edit it again**: no added, removed, renamed or retyped properties, no new models, no changed `versionIdentifier`. This applies to any milestone, including instructions written before this rule (e.g. SPEC M7.1's "add it to `SchemaV1` directly" was a one-off and doesn't carry forward).
+- **Any change to a `@Model` class, or adding or removing a model, goes in a new schema version** (`SchemaV2`, then `SchemaV3`…):
+  1. Snapshot the current models inside the old version first, e.g. `extension SchemaV1 { @Model final class Meal { … } }`, copied exactly as they are, so the old version keeps describing the old store.
+  2. Define the new version (`enum SchemaV2: VersionedSchema`, `versionIdentifier = Schema.Version(2, 0, 0)`) with the changed models, and point the app's top-level names at the latest version (e.g. `typealias Meal = SchemaV2.Meal`).
+  3. Add the new version to `MealPlannerMigrationPlan.schemas` and add a stage: `.lightweight(fromVersion:toVersion:)` for adding properties with defaults or adding models, or `.custom(…)` when data has to be transformed (type changes, splitting or merging fields, back-filling values).
+  4. For renamed properties use `@Attribute(originalName: "oldName")`. Never simply delete and re-add a property.
+  5. `ModelContainerFactory` always builds the **latest** schema, with the migration plan.
+- **Every schema change needs a migration test:** create an **on-disk** store (a temp directory, not in-memory) with the previous schema, insert representative data, reopen it with the latest schema and the migration plan, and assert the data survived, with new fields having their expected default or back-filled values.
+- Record every schema version bump in `DECISIONS.md`, with what changed and which stage type was used.
+- Changes that don't touch `@Model` classes (views, services, domain structs, JSON snapshot types) don't need a new version. But the archive snapshot types (`ArchivedSlot`, `ArchivedShoppingList`) are saved as JSON: only add **optional** fields to them, so old saved JSON still decodes.

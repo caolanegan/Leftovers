@@ -527,6 +527,8 @@ final class ShoppingItemState {
 
 ### 6.5 Schema & container (`SchemaV1.swift`)
 
+> **From v1.3 on, `SchemaV1` is frozen.** Every later model change needs a new schema version plus a migration stage and a migration test. See "Data model changes" in `CLAUDE.md`, which overrides any older instruction in this spec to edit `SchemaV1` directly.
+
 ```swift
 enum SchemaV1: VersionedSchema {
     static var versionIdentifier = Schema.Version(1, 0, 0)
