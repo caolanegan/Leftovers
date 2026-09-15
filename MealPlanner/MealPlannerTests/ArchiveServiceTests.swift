@@ -135,4 +135,41 @@ struct ArchiveServiceTests {
         #expect(second == 0)
         #expect(pastPlan.isArchived == true)
     }
+
+    @Test func archivingStoresAShoppingSnapshotMatchingTheLiveList() throws {
+        let meal = try makeMeal()
+        _ = try plantEndedWeekSlot(meal: meal)
+
+        try archiveService().archiveEndedWeeks()
+
+        let plan = try #require(try weekPlanService().plan(for: "2026-W37"))
+        let snapshot = try #require(archiveService().archivedShoppingList(plan))
+        #expect(snapshot.sections.flatMap(\.items).map(\.displayName) == ["Onion"])
+    }
+
+    @Test func editingMealAfterArchiveDoesNotChangeTheShoppingSnapshot() throws {
+        let meal = try makeMeal()
+        _ = try plantEndedWeekSlot(meal: meal)
+        try archiveService().archiveEndedWeeks()
+
+        let plan = try #require(try weekPlanService().plan(for: "2026-W37"))
+        let before = try #require(archiveService().archivedShoppingList(plan))
+
+        var draft = MealDraft(meal: meal)
+        draft.name = "Renamed meal"
+        try mealStore.update(meal, from: draft)
+
+        let after = try #require(archiveService().archivedShoppingList(plan))
+        #expect(after == before)
+    }
+
+    @Test func archivedShoppingListIsNilWhenNoSnapshotWasEverSaved() throws {
+        // Simulates a week archived before M9 added this step.
+        let plan = WeekPlan(weekID: "2026-W30")
+        plan.isArchived = true
+        context.insert(plan)
+        try context.save()
+
+        #expect(archiveService().archivedShoppingList(plan) == nil)
+    }
 }

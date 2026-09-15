@@ -18,7 +18,7 @@ extension WeekPlanService {
         }
 
         let meals = try context.fetch(FetchDescriptor<Meal>())
-        let mealsByID = Dictionary(uniqueKeysWithValues: meals.map { ($0.id, $0) })
+        let mealsByID = Dictionary(meals.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let candidatesByType = Self.candidatesByMealType(meals)
         let excludedMealIDs = try mealIDs(inWeek: WeekMath.weekID(weekID, adding: -1, calendar: calendar))
         /// Types with at least one candidate left once last week's meals are

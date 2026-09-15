@@ -78,7 +78,7 @@ private struct WeekPlanContentView: View {
             }
         }
 
-        let sourceLabels = Dictionary(uniqueKeysWithValues: occurrences.map { ($0.slotID, LeftoverRules.label(for: $0.position)) })
+        let sourceLabels = Dictionary(occurrences.map { ($0.slotID, LeftoverRules.label(for: $0.position)) }, uniquingKeysWith: { first, _ in first })
         return PlanWeekContext(occurrences: occurrences, filledPositions: filled, sourceLabels: sourceLabels)
     }
 

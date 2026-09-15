@@ -28,10 +28,12 @@ struct RootTabView: View {
             }
             Tab("Shopping", systemImage: "cart", value: .shopping) {
                 NavigationStack {
-                    PlaceholderScreen(title: "Shopping")
+                    ShoppingListView()
                         .appRouteDestinations()
                 }
+                .background(ShoppingBadgeReporter(weekID: appState.selectedWeekID).id(appState.selectedWeekID))
             }
+            .badge(appState.shoppingBadgeCount)
             Tab("Settings", systemImage: "gearshape", value: .settings) {
                 NavigationStack {
                     SettingsView()
@@ -56,14 +58,42 @@ struct RootTabView: View {
     }
 }
 
-/// Stands in for a tab's root screen until the milestone that builds it.
-private struct PlaceholderScreen: View {
-    let title: String
+/// Invisible: computes the Shopping tab's badge (§9.1 — `.unchecked` +
+/// `.needsMore` items, only for a non-archived week) and writes it to
+/// `AppState`, so the count stays correct even while that tab has never been
+/// opened. `@Query` (not read directly — declaring it is enough) keeps this
+/// live as recipes and ingredients change elsewhere, same reasoning as
+/// `ShoppingListView`.
+private struct ShoppingBadgeReporter: View {
+    let weekID: String
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(AppState.self) private var appState
+    @Query private var plans: [WeekPlan]
+    @Query private var meals: [Meal]
+    @Query private var ingredients: [Ingredient]
+
+    init(weekID: String) {
+        self.weekID = weekID
+        let id = weekID
+        _plans = Query(filter: #Predicate<WeekPlan> { $0.weekID == id })
+    }
+
+    private var count: Int {
+        guard let plan = plans.first, !plan.isArchived else { return 0 }
+        let service = WeekPlanService(context: modelContext)
+        let sections = ShoppingListBuilder.build(from: service.shoppingLines(for: plan))
+        let statuses = service.statuses(for: plan, sections: sections)
+        return statuses.values.filter {
+            if case .checked = $0 { return false }
+            return true
+        }.count
+    }
 
     var body: some View {
-        Text("\(title) is coming soon.")
-            .foregroundStyle(.secondary)
-            .navigationTitle(title)
+        Color.clear
+            .frame(width: 0, height: 0)
+            .task(id: count) { appState.shoppingBadgeCount = count }
     }
 }
 

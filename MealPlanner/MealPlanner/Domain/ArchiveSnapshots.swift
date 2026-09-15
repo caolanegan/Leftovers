@@ -15,9 +15,11 @@ struct ArchivedSlot: Codable, Equatable, Sendable {
     let ingredients: [ArchivedIngredientLine] // empty for leftovers
 }
 
-/// `ArchivedShoppingList` and the shopping side of archiving arrive in M9,
-/// once `ShoppingListBuilder`/`ShoppingCheckEvaluator` exist (§8.1 is read
-/// "slots only" for M6).
+struct ArchivedShoppingList: Codable, Equatable, Sendable {
+    let sections: [ShoppingListSection]
+    let statuses: [String: CheckStatus]
+}
+
 enum ArchiveCoding {
     static func encode<T: Encodable>(_ value: T) throws -> String {
         let encoder = JSONEncoder()

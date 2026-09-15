@@ -38,4 +38,22 @@ struct ArchiveSnapshotsTests {
 
         #expect(decoded == slot)
     }
+
+    @Test func archivedShoppingListRoundTripsEveryCheckStatusCase() throws {
+        let item = ShoppingListItem(key: "k", displayName: "Chicken breast", category: .meatFish, amounts: [.g: 200], usedIn: ["Fajitas"], hasManualEntry: false)
+        let section = ShoppingListSection(category: .meatFish, items: [item])
+        let list = ArchivedShoppingList(
+            sections: [section],
+            statuses: [
+                "unchecked-key": .unchecked,
+                "checked-key": .checked,
+                "needsMore-key": .needsMore([.g: 150]),
+            ]
+        )
+
+        let json = try ArchiveCoding.encode(list)
+        let decoded = try ArchiveCoding.decode(ArchivedShoppingList.self, from: json)
+
+        #expect(decoded == list)
+    }
 }
