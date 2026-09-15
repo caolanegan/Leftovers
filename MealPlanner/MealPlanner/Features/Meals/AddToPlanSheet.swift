@@ -5,8 +5,7 @@ import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlanner", category: "AddToPlan")
 
-/// §10.8. The leftovers prompt and dependent-leftovers dialog (§10.3) arrive
-/// in M7 — no leftover slots can exist yet, so "Add" always assigns cooked.
+/// §10.8. "Add" runs the full leftovers-aware assign flow (§10.3).
 struct AddToPlanSheet: View {
     let meal: Meal
 
@@ -16,6 +15,8 @@ struct AddToPlanSheet: View {
     @State private var selectedDayIndex: Int
     @State private var selectedMealType: MealType
     @State private var errorMessage: String?
+    @State private var pendingLeftoverPrompt: LeftoverOrCookAgainPrompt?
+    @State private var pendingDependentPrompt: DependentLeftoversPrompt?
 
     init(meal: Meal) {
         self.meal = meal
@@ -75,6 +76,8 @@ struct AddToPlanSheet: View {
                     Button("Add") { add() }
                 }
             }
+            .leftoverOrCookAgainDialog($pendingLeftoverPrompt)
+            .dependentLeftoversDialog($pendingDependentPrompt)
             .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -120,10 +123,68 @@ struct AddToPlanSheet: View {
         return "\(WeekMath.shortDayName(dayIndex)) \(formatter.string(from: date))"
     }
 
+    private var position: PlanPosition {
+        PlanPosition(weekID: weekID, dayIndex: selectedDayIndex, mealType: selectedMealType)
+    }
+
+    /// Runs the full leftovers-aware assign flow (§10.3): a leftovers prompt
+    /// if there are source candidates, then a dependent-leftovers dialog if
+    /// replacing a cooked meal that has leftovers depending on it.
     private func add() {
         do {
-            let position = PlanPosition(weekID: weekID, dayIndex: selectedDayIndex, mealType: selectedMealType)
-            try WeekPlanService(context: modelContext).assign(meal, at: position)
+            switch try WeekPlanService(context: modelContext).assignmentDecision(forAssigning: meal, at: position) {
+            case .needsLeftoverPrompt(let candidates):
+                presentLeftoverPrompt(candidates)
+            case .needsDependentPrompt(let dependents):
+                presentDependentPrompt(dependents)
+            case .readyToAssign:
+                finishAssign(leftoversOf: nil)
+            }
+        } catch {
+            logger.error("Failed to check leftovers: \(error, privacy: .public)")
+            errorMessage = "Something went wrong. Please try again."
+        }
+    }
+
+    private func presentLeftoverPrompt(_ candidates: [PlanOccurrence]) {
+        guard let nearest = candidates.first else {
+            finishAssign(leftoversOf: nil)
+            return
+        }
+        pendingLeftoverPrompt = LeftoverOrCookAgainPrompt(
+            mealName: meal.name,
+            nearestLabel: LeftoverRules.label(for: nearest.position),
+            nearestButtonLabel: "\(WeekMath.shortDayName(nearest.position.dayIndex)) \(nearest.position.mealType.displayName)",
+            onChooseLeftovers: { finishAssign(leftoversOf: nearest.slotID) },
+            onChooseCookAgain: { proceedCooked() }
+        )
+    }
+
+    /// After "Cook Again" (or when there were no candidates to begin with):
+    /// still needs the dependent-leftovers check before assigning as cooked.
+    private func proceedCooked() {
+        do {
+            switch try WeekPlanService(context: modelContext).dependentDecision(forCookedAssignmentOf: meal, at: position) {
+            case .needsDependentPrompt(let dependents):
+                presentDependentPrompt(dependents)
+            default:
+                finishAssign(leftoversOf: nil)
+            }
+        } catch {
+            logger.error("Failed to check dependents: \(error, privacy: .public)")
+            errorMessage = "Something went wrong. Please try again."
+        }
+    }
+
+    private func presentDependentPrompt(_ dependents: [MealSlot]) {
+        pendingDependentPrompt = .make(for: position, dependents: dependents) { action in
+            finishAssign(leftoversOf: nil, dependents: action)
+        }
+    }
+
+    private func finishAssign(leftoversOf sourceSlotID: UUID?, dependents: DependentLeftoversAction = .keepAsCooked) {
+        do {
+            try WeekPlanService(context: modelContext).assign(meal, at: position, leftoversOf: sourceSlotID, dependents: dependents)
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             dismiss()
         } catch {

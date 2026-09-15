@@ -73,11 +73,6 @@ struct ArchiveService {
     }
 
     private func sourceLabel(for slot: MealSlot) -> String? {
-        guard let sourceID = slot.leftoverOfSlotID else { return nil }
-        var descriptor = FetchDescriptor<MealSlot>(predicate: #Predicate<MealSlot> { $0.id == sourceID })
-        descriptor.fetchLimit = 1
-        guard let source = try? context.fetch(descriptor).first else { return nil }
-        let position = PlanPosition(weekID: source.weekPlan?.weekID ?? "", dayIndex: source.dayIndex, mealType: source.mealType)
-        return LeftoverRules.label(for: position)
+        try? WeekPlanService(context: context, now: now, calendar: calendar).sourceLabel(for: slot)
     }
 }

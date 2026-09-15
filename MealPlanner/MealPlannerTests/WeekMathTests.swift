@@ -92,4 +92,9 @@ struct WeekMathTests {
     @Test func weekCommencingTextOmitsTheYearForTheCurrentYear() {
         #expect(WeekMath.weekCommencingText(for: "2026-W38", calendar: calendar, locale: locale) == "w/c 14 Sep")
     }
+
+    @Test func fullDayNameForEveryDayIndex() {
+        #expect(WeekMath.fullDayName(0) == "Monday")
+        #expect(WeekMath.fullDayName(6) == "Sunday")
+    }
 }

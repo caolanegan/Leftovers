@@ -1,16 +1,26 @@
 import SwiftUI
 
-/// One row in a `DaySection` (§10.1). Shuffle (swipe leading, M8) and
-/// "Mark as Leftovers"/"Leftovers for Tomorrow's …" (context menu, M7) aren't
-/// built yet — M6 only has "View Recipe" and "Remove".
+/// One row in a `DaySection` (§10.1). Shuffle (swipe leading) and the
+/// randomiser aren't built yet — that's M8.
 struct MealSlotRow: View {
     let dayName: String   // full weekday, e.g. "Tuesday" — accessibility only
     let dayIndex: Int
     let mealType: MealType
     let plan: WeekPlan?
     let isReadOnly: Bool
+    /// Precomputed by `DaySection` (it needs a service lookup for live weeks,
+    /// unlike everything else this row reads straight off `plan`).
+    let liveLeftoverSourceLabel: String?
+    /// Whether "Mark as Leftovers" should be offered (cooked, with a candidate).
+    let canMarkAsLeftovers: Bool
+    let canLeftoversForTomorrowLunch: Bool
+    let canLeftoversForTomorrowDinner: Bool
     let onTap: () -> Void
     let onRemove: () -> Void
+    let onMarkAsLeftovers: () -> Void
+    let onMarkAsCooked: () -> Void
+    let onLeftoversForTomorrowLunch: () -> Void
+    let onLeftoversForTomorrowDinner: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     /// Wide enough for "Breakfast" (the longest meal type name) plus its icon
@@ -29,7 +39,7 @@ struct MealSlotRow: View {
 
     private var mealName: String? { snapshot?.mealName ?? slot?.meal?.name }
     private var isLeftovers: Bool { (snapshot?.leftoverOfSlotID ?? slot?.leftoverOfSlotID) != nil }
-    private var leftoverLabel: String? { snapshot?.leftoverSourceLabel }
+    private var leftoverLabel: String? { snapshot?.leftoverSourceLabel ?? liveLeftoverSourceLabel }
     private var isFilled: Bool { mealName != nil }
 
     private var recipeRoute: AppRoute? {
@@ -53,6 +63,17 @@ struct MealSlotRow: View {
                         if isFilled {
                             NavigationLink(value: recipeRoute) {
                                 Label("View Recipe", systemImage: "fork.knife")
+                            }
+                            if isLeftovers {
+                                Button("Mark as Cooked", action: onMarkAsCooked)
+                            } else if canMarkAsLeftovers {
+                                Button("Mark as Leftovers", action: onMarkAsLeftovers)
+                            }
+                            if !isLeftovers, canLeftoversForTomorrowLunch {
+                                Button("Leftovers for Tomorrow's Lunch", action: onLeftoversForTomorrowLunch)
+                            }
+                            if !isLeftovers, canLeftoversForTomorrowDinner {
+                                Button("Leftovers for Tomorrow's Dinner", action: onLeftoversForTomorrowDinner)
                             }
                             Button("Remove", role: .destructive, action: onRemove)
                         }

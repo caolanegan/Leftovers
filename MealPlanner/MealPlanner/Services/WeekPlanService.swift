@@ -4,8 +4,8 @@ import SwiftData
 enum DependentLeftoversAction { case remove, keepAsCooked }
 struct CopyResult { let copied: Int; let skippedDeletedMeals: Int }
 
-/// `+Leftovers`, `+Randomize` and `+Shopping` extensions (§8.2) arrive in
-/// M7–M9. M6 builds the core: reading, slots and copy (per its read list).
+/// `+Randomize` and `+Shopping` extensions (§8.2) arrive in M8–M9.
+/// `+Leftovers` (M7) lives alongside this core: reading, slots and copy.
 @MainActor
 struct WeekPlanService {
     let context: ModelContext
@@ -49,9 +49,22 @@ struct WeekPlanService {
 
     // MARK: - Slots
 
-    func assign(_ meal: Meal, at position: PlanPosition, leftoversOf sourceSlotID: UUID? = nil) throws {
+    /// `dependents` resolves what happens to slots that are leftovers of the
+    /// slot at `position`, when this call changes that slot's meal (§8.2)
+    /// — not in the spec's `assign` skeleton, which has no way to carry the
+    /// dependent-leftovers dialog's (§10.3 B) choice through. Assigning the
+    /// same meal, or to a slot that's currently leftovers, never touches
+    /// dependents, so `dependents` is ignored (its default is harmless) in
+    /// every other case.
+    func assign(
+        _ meal: Meal, at position: PlanPosition, leftoversOf sourceSlotID: UUID? = nil,
+        dependents: DependentLeftoversAction = .keepAsCooked
+    ) throws {
         let plan = try fetchOrCreatePlan(for: position.weekID)
         if let existing = slot(at: position, in: plan) {
+            if !existing.isLeftovers, existing.meal?.id != meal.id {
+                try applyDependents(dependents, of: position)
+            }
             existing.meal = meal
             existing.leftoverOfSlotID = sourceSlotID
         } else {
@@ -178,7 +191,9 @@ struct WeekPlanService {
         let leftoverOfSlotID: UUID?
     }
 
-    private func slot(at position: PlanPosition, in plan: WeekPlan) -> MealSlot? {
+    /// Internal, not `private`, so `WeekPlanService+Leftovers.swift` (§5.2's
+    /// extension-per-file split) can reuse it.
+    func slot(at position: PlanPosition, in plan: WeekPlan) -> MealSlot? {
         (plan.slots ?? []).first { $0.dayIndex == position.dayIndex && $0.mealType == position.mealType }
     }
 

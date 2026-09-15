@@ -5,7 +5,7 @@ import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlanner", category: "WeekPlan")
 
-/// §10.1. The randomiser (🎲, M8) and leftover features (M7) aren't built yet.
+/// §10.1. The randomiser (🎲) isn't built yet — that's M8.
 struct WeekPlanView: View {
     @Environment(AppState.self) private var appState
 
@@ -31,6 +31,7 @@ private struct WeekPlanContentView: View {
     @State private var pickerPosition: PlanPosition?
     @State private var pendingClearWeek = false
     @State private var pendingCopy: CopyRequest?
+    @State private var pendingDependentRemoval: DependentLeftoversPrompt?
     @State private var infoMessage: String?
     @State private var errorMessage: String?
 
@@ -68,7 +69,10 @@ private struct WeekPlanContentView: View {
                         isReadOnly: isReadOnly,
                         plan: plan,
                         onSelect: { pickerPosition = $0 },
-                        onRemove: { remove(at: $0) }
+                        onRemove: { remove(at: $0) },
+                        onMarkAsLeftovers: { markAsLeftovers(at: $0) },
+                        onMarkAsCooked: { markAsCooked(at: $0) },
+                        onAddLeftovers: { addLeftovers(from: $0, to: $1) }
                     )
                 }
             }
@@ -133,6 +137,7 @@ private struct WeekPlanContentView: View {
         } message: { _ in
             Text("Fill Empty Meals keeps what's already planned. Replace This Week removes it first.")
         }
+        .dependentLeftoversDialog($pendingDependentRemoval)
         .task(id: weekID) {
             guard isReadOnly, plan?.isArchived != true else { return }
             do {
@@ -169,9 +174,49 @@ private struct WeekPlanContentView: View {
 
     private func remove(at position: PlanPosition) {
         do {
-            try WeekPlanService(context: modelContext).clearSlot(at: position, dependents: .remove)
+            let service = WeekPlanService(context: modelContext)
+            let dependents = try service.dependentLeftovers(of: position)
+            guard !dependents.isEmpty else {
+                try service.clearSlot(at: position, dependents: .remove)
+                return
+            }
+            pendingDependentRemoval = .make(for: position, dependents: dependents) { action in
+                do {
+                    try WeekPlanService(context: modelContext).clearSlot(at: position, dependents: action)
+                } catch {
+                    logger.error("Failed to remove slot: \(error, privacy: .public)")
+                    errorMessage = "Something went wrong. Please try again."
+                }
+            }
         } catch {
             logger.error("Failed to remove slot: \(error, privacy: .public)")
+            errorMessage = "Something went wrong. Please try again."
+        }
+    }
+
+    private func markAsLeftovers(at position: PlanPosition) {
+        do {
+            try WeekPlanService(context: modelContext).markAsLeftovers(at: position)
+        } catch {
+            logger.error("Failed to mark as leftovers: \(error, privacy: .public)")
+            errorMessage = "Something went wrong. Please try again."
+        }
+    }
+
+    private func markAsCooked(at position: PlanPosition) {
+        do {
+            try WeekPlanService(context: modelContext).markAsCooked(at: position)
+        } catch {
+            logger.error("Failed to mark as cooked: \(error, privacy: .public)")
+            errorMessage = "Something went wrong. Please try again."
+        }
+    }
+
+    private func addLeftovers(from source: PlanPosition, to target: PlanPosition) {
+        do {
+            try WeekPlanService(context: modelContext).addLeftovers(from: source, to: target)
+        } catch {
+            logger.error("Failed to add leftovers: \(error, privacy: .public)")
             errorMessage = "Something went wrong. Please try again."
         }
     }

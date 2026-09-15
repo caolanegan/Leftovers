@@ -254,4 +254,194 @@ struct WeekPlanServiceTests {
             try service.assign(meal, at: PlanPosition(weekID: "2026-W37", dayIndex: 0, mealType: .dinner))
         }
     }
+
+    // MARK: - Leftovers (M7)
+
+    @Test func leftoverSourceCandidatesFindsAMealCookedWithinThreeDays() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner))
+
+        let candidates = try service.leftoverSourceCandidates(
+            mealID: meal.id, target: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch)
+        )
+
+        #expect(candidates.count == 1)
+        #expect(candidates.first?.position.dayIndex == 0)
+    }
+
+    @Test func leftoverSourceCandidatesWorksAcrossTheWeekBoundary() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 6, mealType: .dinner))
+
+        let candidates = try service.leftoverSourceCandidates(
+            mealID: meal.id, target: PlanPosition(weekID: "2026-W39", dayIndex: 0, mealType: .lunch)
+        )
+
+        #expect(candidates.count == 1)
+    }
+
+    @Test func assignAsLeftoversAddsNoDependentsAndSetsTheSourceLink() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let cookedPosition = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        try service.assign(meal, at: cookedPosition)
+        let cookedSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch), leftoversOf: cookedSlot.id)
+
+        let leftoverSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first { $0.dayIndex == 1 })
+        #expect(leftoverSlot.leftoverOfSlotID == cookedSlot.id)
+        #expect(leftoverSlot.isLeftovers)
+    }
+
+    @Test func markAsLeftoversUsesTheNearestCandidate() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner))
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch))
+
+        try service.markAsLeftovers(at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch))
+
+        let plan = try #require(try service.plan(for: "2026-W38"))
+        let cookedSlot = try #require((plan.slots ?? []).first { $0.dayIndex == 0 })
+        let leftoverSlot = try #require((plan.slots ?? []).first { $0.dayIndex == 1 })
+        #expect(leftoverSlot.leftoverOfSlotID == cookedSlot.id)
+    }
+
+    @Test func markAsLeftoversIsANoOpWithoutACandidate() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch))
+
+        try service.markAsLeftovers(at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch))
+
+        let slot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+        #expect(slot.leftoverOfSlotID == nil)
+    }
+
+    @Test func markAsCookedClearsTheSourceLink() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let cookedPosition = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        try service.assign(meal, at: cookedPosition)
+        let cookedSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+        let leftoverPosition = PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch)
+        try service.assign(meal, at: leftoverPosition, leftoversOf: cookedSlot.id)
+
+        try service.markAsCooked(at: leftoverPosition)
+
+        let slot = try #require((try service.plan(for: "2026-W38"))?.slots?.first { $0.dayIndex == 1 })
+        #expect(slot.leftoverOfSlotID == nil)
+    }
+
+    @Test func addLeftoversAssignsTheSameMealLinkedToTheSource() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let source = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        try service.assign(meal, at: source)
+        let cookedSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+
+        try service.addLeftovers(from: source, to: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch))
+
+        let leftoverSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first { $0.dayIndex == 1 })
+        #expect(leftoverSlot.meal?.id == meal.id)
+        #expect(leftoverSlot.leftoverOfSlotID == cookedSlot.id)
+    }
+
+    @Test func sourceLabelDescribesTheCookedSlot() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let source = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        try service.assign(meal, at: source)
+        let cookedSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch), leftoversOf: cookedSlot.id)
+        let leftoverSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first { $0.dayIndex == 1 })
+
+        #expect(try service.sourceLabel(for: leftoverSlot) == "Mon dinner")
+    }
+
+    @Test func isEmptyAndEditableIsTrueForAnEmptySlotInAnEditableWeek() throws {
+        #expect(try service.isEmptyAndEditable(PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)))
+    }
+
+    @Test func isEmptyAndEditableIsFalseForAFilledSlot() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let position = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        try service.assign(meal, at: position)
+
+        #expect(try service.isEmptyAndEditable(position) == false)
+    }
+
+    @Test func isEmptyAndEditableIsFalseForAnEndedWeek() throws {
+        #expect(try service.isEmptyAndEditable(PlanPosition(weekID: "2026-W37", dayIndex: 0, mealType: .dinner)) == false)
+    }
+
+    @Test func assignmentDecisionNeedsLeftoverPromptWhenThereAreCandidates() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner))
+
+        let decision = try service.assignmentDecision(forAssigning: meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch))
+
+        guard case .needsLeftoverPrompt(let candidates) = decision else {
+            Issue.record("Expected needsLeftoverPrompt, got \(decision)")
+            return
+        }
+        #expect(candidates.count == 1)
+    }
+
+    @Test func assignmentDecisionIsReadyWhenAssigningTheSameMealToTheSameSlot() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let position = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        try service.assign(meal, at: position)
+
+        let decision = try service.assignmentDecision(forAssigning: meal, at: position)
+
+        guard case .readyToAssign = decision else {
+            Issue.record("Expected readyToAssign, got \(decision)")
+            return
+        }
+    }
+
+    @Test func assignmentDecisionNeedsDependentPromptWhenReplacingACookedMealWithDependents() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let otherMeal = try makeMeal("Veggie chilli")
+        let cookedPosition = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        try service.assign(meal, at: cookedPosition)
+        let cookedSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch), leftoversOf: cookedSlot.id)
+
+        let decision = try service.dependentDecision(forCookedAssignmentOf: otherMeal, at: cookedPosition)
+
+        guard case .needsDependentPrompt(let dependents) = decision else {
+            Issue.record("Expected needsDependentPrompt, got \(decision)")
+            return
+        }
+        #expect(dependents.count == 1)
+    }
+
+    @Test func assignWithRemoveDependentsDeletesLeftoversWhenReplacingTheMeal() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let otherMeal = try makeMeal("Veggie chilli")
+        let cookedPosition = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        try service.assign(meal, at: cookedPosition)
+        let cookedSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch), leftoversOf: cookedSlot.id)
+
+        try service.assign(otherMeal, at: cookedPosition, dependents: .remove)
+
+        let plan = try #require(try service.plan(for: "2026-W38"))
+        #expect((plan.slots ?? []).count == 1)
+        #expect((plan.slots ?? []).first?.meal?.id == otherMeal.id)
+    }
+
+    @Test func assignWithKeepAsCookedDetachesLeftoversWhenReplacingTheMeal() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let otherMeal = try makeMeal("Veggie chilli")
+        let cookedPosition = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        try service.assign(meal, at: cookedPosition)
+        let cookedSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch), leftoversOf: cookedSlot.id)
+
+        try service.assign(otherMeal, at: cookedPosition, dependents: .keepAsCooked)
+
+        let plan = try #require(try service.plan(for: "2026-W38"))
+        #expect((plan.slots ?? []).count == 2)
+        let formerLeftover = try #require((plan.slots ?? []).first { $0.dayIndex == 1 })
+        #expect(formerLeftover.leftoverOfSlotID == nil)
+        #expect(formerLeftover.meal?.id == meal.id)
+    }
 }

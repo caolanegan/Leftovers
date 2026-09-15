@@ -78,6 +78,14 @@ enum WeekMath {
         return names[dayIndex]
     }
 
+    /// Full weekday name, fixed English (like `shortDayName`) rather than
+    /// locale-dependent — used by the leftovers dialogs' copy (§10.3).
+    static func fullDayName(_ dayIndex: Int) -> String {
+        let names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        guard names.indices.contains(dayIndex) else { return "" }
+        return names[dayIndex]
+    }
+
     static func title(for weekID: String, now: Date, calendar: Calendar, locale: Locale) -> String {
         let current = Self.weekID(for: now, calendar: calendar)
         if weekID == current { return "This week" }
