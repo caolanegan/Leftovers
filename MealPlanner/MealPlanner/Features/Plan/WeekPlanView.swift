@@ -51,7 +51,30 @@ private struct WeekPlanContentView: View {
         return (plan.slots ?? []).filter { $0.meal != nil }.count
     }
 
+    /// Built once per render (not once per row — §10.1 perf) so `DaySection`
+    /// can derive every row's leftovers context-menu flags with no fetches
+    /// of its own: this week's + the previous week's occurrences (for
+    /// candidate lookups), every filled position across this week and next
+    /// week's Monday (for "Leftovers for Tomorrow"), and source labels.
+    private var planContext: PlanWeekContext {
+        guard !isReadOnly else { return .empty }
+        let service = WeekPlanService(context: modelContext)
+        let occurrences = (try? service.occurrences(around: weekID)) ?? []
+
+        var filled = Set((plan?.slots ?? []).map { PlanPosition(weekID: weekID, dayIndex: $0.dayIndex, mealType: $0.mealType) })
+        let nextWeekID = WeekMath.weekID(weekID, adding: 1, calendar: WeekMath.appCalendar)
+        if let nextPlan = try? service.plan(for: nextWeekID) {
+            for slot in nextPlan.slots ?? [] where slot.dayIndex == 0 {
+                filled.insert(PlanPosition(weekID: nextWeekID, dayIndex: 0, mealType: slot.mealType))
+            }
+        }
+
+        let sourceLabels = Dictionary(uniqueKeysWithValues: occurrences.map { ($0.slotID, LeftoverRules.label(for: $0.position)) })
+        return PlanWeekContext(occurrences: occurrences, filledPositions: filled, sourceLabels: sourceLabels)
+    }
+
     var body: some View {
+        let context = planContext
         ScrollViewReader { proxy in
             List {
                 if isReadOnly {
@@ -68,6 +91,7 @@ private struct WeekPlanContentView: View {
                         isToday: isToday(dayIndex),
                         isReadOnly: isReadOnly,
                         plan: plan,
+                        context: context,
                         onSelect: { pickerPosition = $0 },
                         onRemove: { remove(at: $0) },
                         onMarkAsLeftovers: { markAsLeftovers(at: $0) },

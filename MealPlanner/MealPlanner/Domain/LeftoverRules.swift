@@ -15,6 +15,31 @@ struct PlanOccurrence: Hashable, Sendable {
     let isLeftovers: Bool
 }
 
+/// Precomputed once per Plan-screen render (`WeekPlanContentView.planContext`)
+/// so `DaySection`/`MealSlotRow` can derive their per-row context-menu flags
+/// with no further `WeekPlanService` fetches.
+struct PlanWeekContext: Sendable {
+    /// This week's occurrences plus the previous week's (as `WeekPlanService.occurrences(around:)`).
+    var occurrences: [PlanOccurrence] = []
+    /// Every position with a live filled slot, across this week and next week's Monday
+    /// (so a Sunday row's "Leftovers for Tomorrow" can see across the week boundary).
+    var filledPositions: Set<PlanPosition> = []
+    /// A leftover slot's source slot id → its human label ("Mon dinner"), derived from `occurrences`.
+    var sourceLabels: [UUID: String] = [:]
+
+    static let empty = PlanWeekContext()
+}
+
+/// Whether a filled, cooked slot should offer "Mark as Leftovers" and
+/// "Leftovers for Tomorrow's Lunch/Dinner" in its context menu (§10.1).
+struct PlanSlotMenuFlags: Equatable {
+    let canMarkAsLeftovers: Bool
+    let leftoversForTomorrowLunch: Bool
+    let leftoversForTomorrowDinner: Bool
+
+    static let none = PlanSlotMenuFlags(canMarkAsLeftovers: false, leftoversForTomorrowLunch: false, leftoversForTomorrowDinner: false)
+}
+
 enum LeftoverRules {
     static let maxDaysLater = 3
 
@@ -40,6 +65,25 @@ enum LeftoverRules {
                 return lhs.0.position.mealType > rhs.0.position.mealType   // later meal type first
             }
             .map(\.0)
+    }
+
+    /// Derives a filled row's leftovers context-menu flags (§10.1) purely from
+    /// a precomputed `PlanWeekContext` — no fetches. `mealID`/`isLeftovers`
+    /// nil/true means an empty or already-leftovers slot, which offers none of these.
+    static func slotMenuFlags(
+        mealID: UUID?, isLeftovers: Bool, position: PlanPosition, context: PlanWeekContext, calendar: Calendar
+    ) -> PlanSlotMenuFlags {
+        guard let mealID, !isLeftovers else { return .none }
+
+        let canMark = !sourceCandidates(mealID: mealID, target: position, occurrences: context.occurrences, calendar: calendar).isEmpty
+        let (nextWeekID, nextDayIndex) = WeekMath.nextDay(weekID: position.weekID, dayIndex: position.dayIndex, calendar: calendar)
+        let tomorrowLunch = PlanPosition(weekID: nextWeekID, dayIndex: nextDayIndex, mealType: .lunch)
+        let tomorrowDinner = PlanPosition(weekID: nextWeekID, dayIndex: nextDayIndex, mealType: .dinner)
+        return PlanSlotMenuFlags(
+            canMarkAsLeftovers: canMark,
+            leftoversForTomorrowLunch: !context.filledPositions.contains(tomorrowLunch),
+            leftoversForTomorrowDinner: !context.filledPositions.contains(tomorrowDinner)
+        )
     }
 
     /// Human label for a source slot, e.g. "Mon dinner".

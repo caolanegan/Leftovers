@@ -121,4 +121,62 @@ struct LeftoverRulesTests {
         let second = PlanPosition(weekID: "2026-W38", dayIndex: 2, mealType: .lunch)
         #expect(LeftoverRules.dependentPromptMessage(for: [first, second]) == "Tuesday lunch and Wednesday lunch are leftovers from this meal.")
     }
+
+    // MARK: - slotMenuFlags (Plan-screen context-menu flags, §10.1)
+
+    @Test func slotMenuFlagsAreAllFalseForAnEmptySlot() {
+        let position = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+
+        let flags = LeftoverRules.slotMenuFlags(mealID: nil, isLeftovers: false, position: position, context: .empty, calendar: calendar)
+
+        #expect(flags == .none)
+    }
+
+    @Test func slotMenuFlagsAreAllFalseForALeftoversSlot() {
+        let position = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        let context = PlanWeekContext(occurrences: [occurrence(weekID: "2026-W37", dayIndex: 6, mealType: .dinner)])
+
+        let flags = LeftoverRules.slotMenuFlags(mealID: mealID, isLeftovers: true, position: position, context: context, calendar: calendar)
+
+        #expect(flags == .none)
+    }
+
+    @Test func slotMenuFlagsCanMarkAsLeftoversWhenThereIsACandidate() {
+        let position = PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch)
+        let context = PlanWeekContext(occurrences: [occurrence(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)])
+
+        let flags = LeftoverRules.slotMenuFlags(mealID: mealID, isLeftovers: false, position: position, context: context, calendar: calendar)
+
+        #expect(flags.canMarkAsLeftovers)
+    }
+
+    @Test func slotMenuFlagsCannotMarkAsLeftoversWithoutACandidate() {
+        let position = PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch)
+
+        let flags = LeftoverRules.slotMenuFlags(mealID: mealID, isLeftovers: false, position: position, context: .empty, calendar: calendar)
+
+        #expect(flags.canMarkAsLeftovers == false)
+    }
+
+    @Test func slotMenuFlagsOffersLeftoversForTomorrowOnlyForEmptyTargets() {
+        let position = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner)
+        let tomorrowLunch = PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch)
+        let context = PlanWeekContext(filledPositions: [tomorrowLunch])
+
+        let flags = LeftoverRules.slotMenuFlags(mealID: mealID, isLeftovers: false, position: position, context: context, calendar: calendar)
+
+        #expect(flags.leftoversForTomorrowLunch == false)
+        #expect(flags.leftoversForTomorrowDinner)
+    }
+
+    @Test func slotMenuFlagsForTomorrowWrapsAcrossTheWeekBoundaryOnSunday() {
+        let position = PlanPosition(weekID: "2026-W38", dayIndex: 6, mealType: .dinner)
+        let nextMondayLunch = PlanPosition(weekID: "2026-W39", dayIndex: 0, mealType: .lunch)
+        let context = PlanWeekContext(filledPositions: [nextMondayLunch])
+
+        let flags = LeftoverRules.slotMenuFlags(mealID: mealID, isLeftovers: false, position: position, context: context, calendar: calendar)
+
+        #expect(flags.leftoversForTomorrowLunch == false)
+        #expect(flags.leftoversForTomorrowDinner)
+    }
 }

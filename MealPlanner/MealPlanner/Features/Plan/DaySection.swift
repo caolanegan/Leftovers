@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 /// One weekday's 3 `MealSlotRow`s (§10.1). The section-header dice ("Randomise
 /// <Day>") arrives with the randomiser in M8.
@@ -9,13 +8,14 @@ struct DaySection: View {
     let isToday: Bool
     let isReadOnly: Bool
     let plan: WeekPlan?
+    /// Precomputed once per render by `WeekPlanContentView` — this view never
+    /// issues its own `WeekPlanService` fetches (§10.1 perf: was up to 3 per row).
+    let context: PlanWeekContext
     let onSelect: (PlanPosition) -> Void
     let onRemove: (PlanPosition) -> Void
     let onMarkAsLeftovers: (PlanPosition) -> Void
     let onMarkAsCooked: (PlanPosition) -> Void
     let onAddLeftovers: (_ from: PlanPosition, _ to: PlanPosition) -> Void
-
-    @Environment(\.modelContext) private var modelContext
 
     /// A stable id for this day's header, distinct from its rows, so
     /// `ScrollViewReader` can scroll the header itself into view — scrolling
@@ -27,6 +27,7 @@ struct DaySection: View {
         Section {
             ForEach(MealType.allCases.sorted()) { mealType in
                 let position = PlanPosition(weekID: weekID, dayIndex: dayIndex, mealType: mealType)
+                let flags = menuFlags(mealType, position: position)
                 MealSlotRow(
                     dayName: fullDayName,
                     dayIndex: dayIndex,
@@ -34,9 +35,9 @@ struct DaySection: View {
                     plan: plan,
                     isReadOnly: isReadOnly,
                     liveLeftoverSourceLabel: liveLeftoverSourceLabel(mealType),
-                    canMarkAsLeftovers: hasLeftoverCandidate(mealType),
-                    canLeftoversForTomorrowLunch: canOfferLeftoversForTomorrow(source: mealType, target: .lunch),
-                    canLeftoversForTomorrowDinner: canOfferLeftoversForTomorrow(source: mealType, target: .dinner),
+                    canMarkAsLeftovers: flags.canMarkAsLeftovers,
+                    canLeftoversForTomorrowLunch: flags.leftoversForTomorrowLunch,
+                    canLeftoversForTomorrowDinner: flags.leftoversForTomorrowDinner,
                     onTap: { onSelect(position) },
                     onRemove: { onRemove(position) },
                     onMarkAsLeftovers: { onMarkAsLeftovers(position) },
@@ -85,20 +86,15 @@ struct DaySection: View {
     }
 
     private func liveLeftoverSourceLabel(_ mealType: MealType) -> String? {
-        guard !isReadOnly, let slot = slot(mealType), slot.isLeftovers else { return nil }
-        return try? WeekPlanService(context: modelContext).sourceLabel(for: slot)
+        guard !isReadOnly, let slot = slot(mealType), slot.isLeftovers, let sourceID = slot.leftoverOfSlotID else { return nil }
+        return context.sourceLabels[sourceID]
     }
 
-    private func hasLeftoverCandidate(_ mealType: MealType) -> Bool {
-        guard !isReadOnly, let slot = slot(mealType), !slot.isLeftovers, let mealID = slot.meal?.id else { return false }
-        let position = PlanPosition(weekID: weekID, dayIndex: dayIndex, mealType: mealType)
-        let candidates = try? WeekPlanService(context: modelContext).leftoverSourceCandidates(mealID: mealID, target: position)
-        return !(candidates ?? []).isEmpty
-    }
-
-    private func canOfferLeftoversForTomorrow(source sourceType: MealType, target targetType: MealType) -> Bool {
-        guard !isReadOnly, let sourceSlot = slot(sourceType), !sourceSlot.isLeftovers, sourceSlot.meal != nil else { return false }
-        let target = tomorrowPosition(mealType: targetType)
-        return (try? WeekPlanService(context: modelContext).isEmptyAndEditable(target)) ?? false
+    private func menuFlags(_ mealType: MealType, position: PlanPosition) -> PlanSlotMenuFlags {
+        guard !isReadOnly, let slot = slot(mealType) else { return .none }
+        return LeftoverRules.slotMenuFlags(
+            mealID: slot.meal?.id, isLeftovers: slot.isLeftovers, position: position,
+            context: context, calendar: WeekMath.appCalendar
+        )
     }
 }

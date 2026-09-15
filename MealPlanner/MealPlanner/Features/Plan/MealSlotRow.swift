@@ -27,6 +27,10 @@ struct MealSlotRow: View {
     /// at the current Dynamic Type size, so every row's name column lines up
     /// without wrapping (§13.2).
     @ScaledMetric(relativeTo: .body) private var mealTypeColumnWidth: CGFloat = 132
+    /// Fixed so the three meal types' differently-shaped SF Symbols
+    /// (sunrise/sun.max/moon.stars) don't push "Breakfast"/"Lunch"/"Dinner"
+    /// to slightly different x-offsets across rows.
+    @ScaledMetric(relativeTo: .body) private var mealTypeIconWidth: CGFloat = 20
 
     private var slot: MealSlot? {
         (plan?.slots ?? []).first { $0.dayIndex == dayIndex && $0.mealType == mealType }
@@ -100,6 +104,7 @@ struct MealSlotRow: View {
     private var mealTypeLabel: some View {
         HStack(spacing: 4) {
             Image(systemName: mealType.symbolName)
+                .frame(width: mealTypeIconWidth)
             Text(mealType.displayName)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
@@ -130,12 +135,17 @@ struct MealSlotRow: View {
         }
     }
 
+    /// Indented to start under the meal name column (§10.1's mockup), not
+    /// under the meal-type icon — except at accessibility sizes, where
+    /// `rowContent` stacks the meal-type label above rather than beside,
+    /// so there's no column to align under.
     @ViewBuilder
     private var leftoversCaption: some View {
         if isLeftovers, let leftoverLabel {
             Label("Leftovers · \(leftoverLabel)", systemImage: "arrow.uturn.backward")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .padding(.leading, dynamicTypeSize.isAccessibilitySize ? 0 : mealTypeColumnWidth)
         }
     }
 

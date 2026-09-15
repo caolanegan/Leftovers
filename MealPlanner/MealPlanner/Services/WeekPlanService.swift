@@ -55,7 +55,9 @@ struct WeekPlanService {
     /// dependent-leftovers dialog's (§10.3 B) choice through. Assigning the
     /// same meal, or to a slot that's currently leftovers, never touches
     /// dependents, so `dependents` is ignored (its default is harmless) in
-    /// every other case.
+    /// every other case. The randomiser's `.replaceAll` (M8, §8.2 step 3)
+    /// must pass `.remove` here — it always deletes a replaced cooked slot's
+    /// dependents, never keeps them as cooked.
     func assign(
         _ meal: Meal, at position: PlanPosition, leftoversOf sourceSlotID: UUID? = nil,
         dependents: DependentLeftoversAction = .keepAsCooked
@@ -64,6 +66,13 @@ struct WeekPlanService {
         if let existing = slot(at: position, in: plan) {
             if !existing.isLeftovers, existing.meal?.id != meal.id {
                 try applyDependents(dependents, of: position)
+            }
+            // This slot is itself becoming leftovers, so nothing should chain
+            // through it — anything that was leftovers of it now points
+            // straight at its own new source instead (§7.7: leftovers always
+            // point at a cooked slot, never at another leftovers slot).
+            if let sourceSlotID {
+                try repointDependents(of: existing.id, to: sourceSlotID)
             }
             existing.meal = meal
             existing.leftoverOfSlotID = sourceSlotID
@@ -222,6 +231,13 @@ struct WeekPlanService {
             case .remove: context.delete(dependent)
             case .keepAsCooked: dependent.leftoverOfSlotID = nil
             }
+        }
+    }
+
+    private func repointDependents(of slotID: UUID, to newSourceSlotID: UUID) throws {
+        let descriptor = FetchDescriptor<MealSlot>(predicate: #Predicate<MealSlot> { $0.leftoverOfSlotID == slotID })
+        for dependent in try context.fetch(descriptor) {
+            dependent.leftoverOfSlotID = newSourceSlotID
         }
     }
 
