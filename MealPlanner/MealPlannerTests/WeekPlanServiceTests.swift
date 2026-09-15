@@ -610,6 +610,28 @@ struct WeekPlanServiceTests {
         #expect(leftoverSlot.meal?.id == meal.id)
     }
 
+    @Test func randomizeReplaceAllDoesNotDeleteDependentsOfASkippedType() throws {
+        // The only breakfast candidate was already planned last week, so this
+        // week's breakfast can't actually be reassigned.
+        let meal = try makeMeal("Scrambled eggs")
+        try plantSlot(weekID: "2026-W37", dayIndex: 0, mealType: .breakfast, meal: meal)
+        let cookedPosition = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .breakfast)
+        try service.assign(meal, at: cookedPosition)
+        let cookedSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch), leftoversOf: cookedSlot.id)
+
+        let outcome = try service.randomize(weekID: "2026-W38", slots: [SlotKey(dayIndex: 0, mealType: .breakfast)], mode: .replaceAll)
+
+        #expect(outcome.removedLeftovers == 0)
+        #expect(outcome.skippedTypes.contains(.breakfast))
+        let plan = try #require(try service.plan(for: "2026-W38"))
+        let cookedSlotAfter = try #require((plan.slots ?? []).first { $0.dayIndex == 0 })
+        #expect(cookedSlotAfter.meal?.id == meal.id)
+        let leftoverSlot = try #require((plan.slots ?? []).first { $0.dayIndex == 1 })
+        #expect(leftoverSlot.leftoverOfSlotID == cookedSlot.id)
+        #expect(leftoverSlot.meal?.id == meal.id)
+    }
+
     @Test func randomizeOnAnEndedWeekThrows() throws {
         #expect(throws: AppError.weekIsArchived) {
             try service.randomize(weekID: "2026-W37", slots: [SlotKey(dayIndex: 0, mealType: .dinner)], mode: .fillEmpty)

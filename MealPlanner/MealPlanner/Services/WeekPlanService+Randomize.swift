@@ -17,6 +17,17 @@ extension WeekPlanService {
             slotByKey[SlotKey(dayIndex: existing.dayIndex, mealType: existing.mealType)] = existing
         }
 
+        let meals = try context.fetch(FetchDescriptor<Meal>())
+        let mealsByID = Dictionary(uniqueKeysWithValues: meals.map { ($0.id, $0) })
+        let candidatesByType = Self.candidatesByMealType(meals)
+        let excludedMealIDs = try mealIDs(inWeek: WeekMath.weekID(weekID, adding: -1, calendar: calendar))
+        /// Types with at least one candidate left once last week's meals are
+        /// excluded — a target of any other type is skipped by
+        /// `MealRandomizer`, so `.replaceAll` mustn't delete its dependents either.
+        let assignableTypes = Set(MealType.allCases.filter { type in
+            !(candidatesByType[type] ?? []).filter { !excludedMealIDs.contains($0) }.isEmpty
+        })
+
         var lockedSlots: Set<SlotKey> = []
         var deletedSlotIDs: Set<UUID> = []
         var removedLeftovers = 0
@@ -24,7 +35,7 @@ extension WeekPlanService {
 
         if mode == .replaceAll {
             for key in slots {
-                guard let slot = slotByKey[key], !slot.isLeftovers else { continue }
+                guard assignableTypes.contains(key.mealType), let slot = slotByKey[key], !slot.isLeftovers else { continue }
                 let position = PlanPosition(weekID: weekID, dayIndex: key.dayIndex, mealType: key.mealType)
                 for dependent in try dependentLeftovers(of: position) {
                     deletedSlotIDs.insert(dependent.id)
@@ -35,8 +46,9 @@ extension WeekPlanService {
             for key in slots {
                 guard let slot = slotByKey[key], slot.isLeftovers, let sourceID = slot.leftoverOfSlotID else { continue }
                 let sourceKey = slotByKey.first { $0.value.id == sourceID }?.key
-                if sourceKey == nil || !targetSet.contains(sourceKey!) {
+                guard let sourceKey, targetSet.contains(sourceKey) else {
                     lockedSlots.insert(key)
+                    continue
                 }
             }
         }
@@ -46,15 +58,16 @@ extension WeekPlanService {
             if let mealID = slot.meal?.id { current[key] = mealID }
         }
 
-        let excludedMealIDs = try mealIDs(inWeek: WeekMath.weekID(weekID, adding: -1, calendar: calendar))
         var rng = SystemRandomNumberGenerator()
         let result = MealRandomizer.randomize(
             targetSlots: slots, current: current, lockedSlots: lockedSlots,
-            candidates: try candidatesByMealType(), excludedMealIDs: excludedMealIDs, mode: mode, using: &rng
+            candidates: candidatesByType, excludedMealIDs: excludedMealIDs, mode: mode, using: &rng
         )
 
+        // Applied directly rather than through `assign` (§8.2 step 5): dependents
+        // are already handled above, and everything saves once at the end.
         for (key, mealID) in result.assignments {
-            guard let meal = try fetchMeal(id: mealID) else { continue }
+            guard let meal = mealsByID[mealID] else { continue }
             if let existing = slotByKey[key], !deletedSlotIDs.contains(existing.id) {
                 existing.meal = meal
                 existing.leftoverOfSlotID = nil
@@ -107,8 +120,7 @@ extension WeekPlanService {
             .map(\.id)
     }
 
-    private func candidatesByMealType() throws -> [MealType: [UUID]] {
-        let meals = try context.fetch(FetchDescriptor<Meal>())
+    private static func candidatesByMealType(_ meals: [Meal]) -> [MealType: [UUID]] {
         var result: [MealType: [UUID]] = [:]
         for type in MealType.allCases {
             result[type] = meals.filter { $0.suits(type) }

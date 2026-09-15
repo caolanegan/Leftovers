@@ -84,41 +84,33 @@ private struct WeekPlanContentView: View {
 
     var body: some View {
         let context = planContext
-        ScrollViewReader { proxy in
-            List {
-                if isReadOnly {
-                    Section {
-                        Label("This week has ended. It's kept as a record and can't be changed.", systemImage: "lock.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                ForEach(0..<7, id: \.self) { dayIndex in
-                    DaySection(
-                        weekID: weekID,
-                        dayIndex: dayIndex,
-                        isToday: isToday(dayIndex),
-                        isReadOnly: isReadOnly,
-                        plan: plan,
-                        context: context,
-                        onSelect: { pickerPosition = $0 },
-                        onRemove: { remove(at: $0) },
-                        onShuffle: { shuffle(at: $0) },
-                        onMarkAsLeftovers: { markAsLeftovers(at: $0) },
-                        onMarkAsCooked: { markAsCooked(at: $0) },
-                        onAddLeftovers: { addLeftovers(from: $0, to: $1) },
-                        onRandomizeDay: { randomizeDayTapped($0) }
-                    )
+        List {
+            if isReadOnly {
+                Section {
+                    Label("This week has ended. It's kept as a record and can't be changed.", systemImage: "lock.fill")
+                        .foregroundStyle(.secondary)
                 }
             }
-            .listStyle(.insetGrouped)
-            .onAppear {
-                if weekID == currentWeekID {
-                    let todayIndex = WeekMath.dayIndex(for: .now, calendar: WeekMath.appCalendar)
-                    proxy.scrollTo(DaySection.headerID(dayIndex: todayIndex), anchor: .top)
-                }
+
+            ForEach(0..<7, id: \.self) { dayIndex in
+                DaySection(
+                    weekID: weekID,
+                    dayIndex: dayIndex,
+                    isToday: isToday(dayIndex),
+                    isReadOnly: isReadOnly,
+                    plan: plan,
+                    context: context,
+                    onSelect: { pickerPosition = $0 },
+                    onRemove: { remove(at: $0) },
+                    onShuffle: { shuffle(at: $0) },
+                    onMarkAsLeftovers: { markAsLeftovers(at: $0) },
+                    onMarkAsCooked: { markAsCooked(at: $0) },
+                    onAddLeftovers: { addLeftovers(from: $0, to: $1) },
+                    onRandomizeDay: { randomizeDayTapped($0) }
+                )
             }
         }
+        .listStyle(.insetGrouped)
         .safeAreaInset(edge: .top) {
             WeekNavigator(
                 title: navigatorTitle,

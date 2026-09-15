@@ -18,12 +18,6 @@ struct DaySection: View {
     let onAddLeftovers: (_ from: PlanPosition, _ to: PlanPosition) -> Void
     let onRandomizeDay: (Int) -> Void
 
-    /// A stable id for this day's header, distinct from its rows, so
-    /// `ScrollViewReader` can scroll the header itself into view — scrolling
-    /// to the section as a whole can leave the header hidden under the
-    /// `WeekNavigator` safe-area inset.
-    static func headerID(dayIndex: Int) -> String { "day-header-\(dayIndex)" }
-
     var body: some View {
         Section {
             ForEach(MealType.allCases.sorted()) { mealType in
@@ -51,7 +45,6 @@ struct DaySection: View {
         } header: {
             HStack {
                 Text(headerText)
-                    .id(Self.headerID(dayIndex: dayIndex))
                 if !isReadOnly {
                     Spacer()
                     Button {
@@ -59,7 +52,7 @@ struct DaySection: View {
                     } label: {
                         Image(systemName: "dice")
                     }
-                    .accessibilityLabel("Randomise")
+                    .accessibilityLabel("Randomise \(fullDayName)")
                 }
             }
         }
