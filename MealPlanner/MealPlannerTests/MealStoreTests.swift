@@ -130,4 +130,66 @@ struct MealStoreTests {
 
         #expect(mealStore.upcomingPlanCount(for: meal) == 1)
     }
+
+    @Test func deleteRemovesNonArchivedSlotsButKeepsArchivedSnapshots() throws {
+        var draft = MealDraft()
+        draft.name = "Soup"
+        let meal = try mealStore.create(from: draft)
+
+        let currentWeek = WeekPlan(weekID: "2026-W38")
+        let archivedWeek = WeekPlan(weekID: "2026-W37")
+        archivedWeek.isArchived = true
+        context.insert(currentWeek)
+        context.insert(archivedWeek)
+
+        let currentSlot = MealSlot(dayIndex: 0, mealType: .dinner)
+        currentSlot.weekPlan = currentWeek
+        currentSlot.meal = meal
+
+        let archivedSlot = MealSlot(dayIndex: 0, mealType: .dinner)
+        archivedSlot.weekPlan = archivedWeek
+        archivedSlot.meal = meal
+        archivedSlot.archivedSnapshotJSON = try ArchiveCoding.encode(
+            ArchivedSlot(slotID: archivedSlot.id, mealID: meal.id, mealName: meal.name, leftoverOfSlotID: nil, leftoverSourceLabel: nil, ingredients: [])
+        )
+        context.insert(currentSlot)
+        context.insert(archivedSlot)
+        try context.save()
+
+        try mealStore.delete(meal)
+
+        let remainingSlots = try context.fetch(FetchDescriptor<MealSlot>())
+        #expect(remainingSlots.count == 1)
+        let remaining = try #require(remainingSlots.first)
+        #expect(remaining.id == archivedSlot.id)
+        #expect(remaining.meal == nil)
+
+        let snapshot = try #require(ArchiveService(context: context).archivedSlot(remaining))
+        #expect(snapshot.mealName == "Soup")
+    }
+
+    @Test func deleteRemovesDependentLeftoversInNonArchivedWeeks() throws {
+        var draft = MealDraft()
+        draft.name = "Soup"
+        let meal = try mealStore.create(from: draft)
+
+        let week = WeekPlan(weekID: "2026-W38")
+        context.insert(week)
+
+        let cookedSlot = MealSlot(dayIndex: 0, mealType: .dinner)
+        cookedSlot.weekPlan = week
+        cookedSlot.meal = meal
+        context.insert(cookedSlot)
+
+        let leftoverSlot = MealSlot(dayIndex: 1, mealType: .lunch)
+        leftoverSlot.weekPlan = week
+        leftoverSlot.meal = meal
+        leftoverSlot.leftoverOfSlotID = cookedSlot.id
+        context.insert(leftoverSlot)
+        try context.save()
+
+        try mealStore.delete(meal)
+
+        #expect(try context.fetch(FetchDescriptor<MealSlot>()).isEmpty)
+    }
 }

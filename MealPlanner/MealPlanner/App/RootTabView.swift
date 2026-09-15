@@ -1,8 +1,13 @@
 import SwiftUI
 import SwiftData
+import os
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlanner", category: "RootTabView")
 
 struct RootTabView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var mealsPath = NavigationPath()
 
     var body: some View {
@@ -11,7 +16,7 @@ struct RootTabView: View {
         TabView(selection: $appState.selectedTab) {
             Tab("Plan", systemImage: "calendar", value: .plan) {
                 NavigationStack {
-                    PlaceholderScreen(title: "Plan")
+                    WeekPlanView()
                         .appRouteDestinations()
                 }
             }
@@ -33,6 +38,20 @@ struct RootTabView: View {
                         .appRouteDestinations()
                 }
             }
+        }
+        .task { archiveEndedWeeks() }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active { archiveEndedWeeks() }
+        }
+    }
+
+    /// §8.1: called at launch and whenever `scenePhase` becomes `.active`, so
+    /// an app left open past Sunday midnight archives before the next change.
+    private func archiveEndedWeeks() {
+        do {
+            try ArchiveService(context: modelContext).archiveEndedWeeks()
+        } catch {
+            logger.error("Failed to archive ended weeks: \(error, privacy: .public)")
         }
     }
 }

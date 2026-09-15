@@ -15,6 +15,7 @@ struct MealDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var showingEditor = false
+    @State private var showingAddToPlan = false
     @State private var showingDeleteConfirmation = false
     @State private var errorMessage: String?
 
@@ -44,10 +45,8 @@ struct MealDetailView: View {
                         Text(servesAndTimeCaption)
                             .foregroundStyle(.secondary)
                     }
-                    // "Add to Plan" is wired up once AddToPlanSheet/WeekPlanService land in M6.
-                    Button("Add to Plan") {}
+                    Button("Add to Plan") { showingAddToPlan = true }
                         .buttonStyle(.borderedProminent)
-                        .disabled(true)
                         .frame(maxWidth: .infinity)
                 }
                 .listRowSeparator(.hidden)
@@ -110,8 +109,7 @@ struct MealDetailView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
-                    Button("Add to Plan") {}
-                        .disabled(true)
+                    Button("Add to Plan") { showingAddToPlan = true }
                     Button("Duplicate") { duplicate() }
                     Button("Delete", role: .destructive) { showingDeleteConfirmation = true }
                 } label: {
@@ -122,6 +120,9 @@ struct MealDetailView: View {
         }
         .sheet(isPresented: $showingEditor) {
             MealEditorView(meal: meal)
+        }
+        .sheet(isPresented: $showingAddToPlan) {
+            AddToPlanSheet(meal: meal)
         }
         .confirmationDialog(
             "Delete \"\(meal.name)\"?",

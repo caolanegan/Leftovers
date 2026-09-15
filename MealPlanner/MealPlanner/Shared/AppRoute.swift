@@ -10,6 +10,36 @@ enum AppRoute: Hashable {
     case ingredientLibrary
     case ingredient(Ingredient)
     case meal(Meal)
+    case archivedSlot(MealSlot)
+
+    /// Hand-written rather than derived: comparing by `id` (not the models'
+    /// own equality) keeps this independent of whichever file happens to
+    /// import `SwiftData` in a given incremental build.
+    static func == (lhs: AppRoute, rhs: AppRoute) -> Bool {
+        switch (lhs, rhs) {
+        case (.ingredientLibrary, .ingredientLibrary): true
+        case (.ingredient(let a), .ingredient(let b)): a.id == b.id
+        case (.meal(let a), .meal(let b)): a.id == b.id
+        case (.archivedSlot(let a), .archivedSlot(let b)): a.id == b.id
+        default: false
+        }
+    }
+
+    func hash(into hasher: inout Hasher) {
+        switch self {
+        case .ingredientLibrary:
+            hasher.combine(0)
+        case .ingredient(let ingredient):
+            hasher.combine(1)
+            hasher.combine(ingredient.id)
+        case .meal(let meal):
+            hasher.combine(2)
+            hasher.combine(meal.id)
+        case .archivedSlot(let slot):
+            hasher.combine(3)
+            hasher.combine(slot.id)
+        }
+    }
 }
 
 extension View {
@@ -26,6 +56,8 @@ extension View {
                 IngredientDetailView(ingredient: ingredient)
             case .meal(let meal):
                 MealDetailView(meal: meal, path: path)
+            case .archivedSlot(let slot):
+                ArchivedSlotDetailView(slot: slot)
             }
         }
     }

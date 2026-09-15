@@ -35,6 +35,7 @@ struct IngredientStore {
 
     @discardableResult
     func create(name: String, defaultUnit: IngredientUnit, category: ShoppingCategory) throws -> Ingredient {
+        try ArchiveService(context: context).archiveEndedWeeks()
         let cleaned = NameNormalizer.clean(name)
         guard !cleaned.isEmpty else { throw AppError.invalidName }
         if let existing = try find(named: cleaned) {
@@ -48,6 +49,7 @@ struct IngredientStore {
     }
 
     func update(_ ingredient: Ingredient, name: String, defaultUnit: IngredientUnit, category: ShoppingCategory) throws {
+        try ArchiveService(context: context).archiveEndedWeeks()
         let cleaned = NameNormalizer.clean(name)
         guard !cleaned.isEmpty else { throw AppError.invalidName }
         if let existing = try find(named: cleaned), existing.id != ingredient.id {
@@ -62,6 +64,7 @@ struct IngredientStore {
     }
 
     func delete(_ ingredient: Ingredient) throws {
+        try ArchiveService(context: context).archiveEndedWeeks()
         let mealCount = ingredient.usedInMeals.count
         guard mealCount == 0 else { throw AppError.ingredientInUse(mealCount: mealCount) }
 
@@ -75,6 +78,7 @@ struct IngredientStore {
     }
 
     func merge(_ source: Ingredient, into target: Ingredient) throws {
+        try ArchiveService(context: context).archiveEndedWeeks()
         guard source.id != target.id else { return }
 
         for line in source.recipeUses ?? [] {

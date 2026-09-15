@@ -10,6 +10,12 @@ private let timeOptions = [5, 10, 15, 20, 25, 30, 40, 45, 60, 75, 90, 120, 150, 
 /// nil`) and edit. Edits a `MealDraft` value, never the model (§10.6).
 struct MealEditorView: View {
     var meal: Meal? = nil
+    /// Preselects a single meal type when creating (§10.2's picker "+ New
+    /// Meal"). Ignored when editing an existing meal.
+    var presetMealType: MealType? = nil
+    /// Called with the created/updated meal right before the sheet dismisses,
+    /// so a caller (e.g. `MealPickerSheet`) can assign it to a plan slot.
+    var onSave: ((Meal) -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -21,9 +27,12 @@ struct MealEditorView: View {
     @State private var errorMessage: String?
     @FocusState private var nameFieldFocused: Bool
 
-    init(meal: Meal? = nil) {
+    init(meal: Meal? = nil, presetMealType: MealType? = nil, onSave: ((Meal) -> Void)? = nil) {
         self.meal = meal
-        let initial = meal.map(MealDraft.init(meal:)) ?? MealDraft()
+        self.presetMealType = presetMealType
+        self.onSave = onSave
+        var initial = meal.map(MealDraft.init(meal:)) ?? MealDraft()
+        if meal == nil, let presetMealType { initial.mealTypes = [presetMealType] }
         _draft = State(initialValue: initial)
         _originalDraft = State(initialValue: initial)
     }
@@ -217,11 +226,14 @@ struct MealEditorView: View {
 
     private func save() {
         do {
+            let savedMeal: Meal
             if let meal {
                 try MealStore(context: modelContext).update(meal, from: draft)
+                savedMeal = meal
             } else {
-                try MealStore(context: modelContext).create(from: draft)
+                savedMeal = try MealStore(context: modelContext).create(from: draft)
             }
+            onSave?(savedMeal)
             dismiss()
         } catch {
             logger.error("Failed to save meal: \(error, privacy: .public)")

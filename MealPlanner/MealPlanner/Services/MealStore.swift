@@ -11,6 +11,7 @@ struct MealStore {
 
     @discardableResult
     func create(from draft: MealDraft) throws -> Meal {
+        try ArchiveService(context: context).archiveEndedWeeks()
         let normalized = draft.normalized()
         guard normalized.isValid else { throw AppError.invalidName }
 
@@ -22,6 +23,7 @@ struct MealStore {
     }
 
     func update(_ meal: Meal, from draft: MealDraft) throws {
+        try ArchiveService(context: context).archiveEndedWeeks()
         let normalized = draft.normalized()
         guard normalized.isValid else { throw AppError.invalidName }
 
@@ -32,6 +34,7 @@ struct MealStore {
 
     @discardableResult
     func duplicate(_ meal: Meal) throws -> Meal {
+        try ArchiveService(context: context).archiveEndedWeeks()
         let copy = Meal(name: "\(meal.name) (copy)")
         copy.mealTypes = meal.mealTypes
         copy.servings = meal.servings
@@ -66,13 +69,29 @@ struct MealStore {
     }
 
     func toggleFavorite(_ meal: Meal) throws {
+        try ArchiveService(context: context).archiveEndedWeeks()
         meal.isFavorite.toggle()
         meal.updatedAt = .now
         try context.save()
     }
 
-    /// A simple delete for now — §6.6's full rules (non-archived slots, dependent leftovers) land in M6.
+    /// Deletes the meal's slots in non-archived weeks (plus any leftovers that
+    /// depend on them), then the meal itself. Archived slots keep their JSON
+    /// snapshot and `meal` becomes nil automatically via the `.nullify` rule (§6.6).
     func delete(_ meal: Meal) throws {
+        try ArchiveService(context: context).archiveEndedWeeks()
+
+        let weekPlanService = WeekPlanService(context: context)
+        for slot in meal.slots ?? [] where slot.weekPlan?.isArchived == false {
+            if let weekID = slot.weekPlan?.weekID {
+                let position = PlanPosition(weekID: weekID, dayIndex: slot.dayIndex, mealType: slot.mealType)
+                for dependent in try weekPlanService.dependentLeftovers(of: position) {
+                    context.delete(dependent)
+                }
+            }
+            context.delete(slot)
+        }
+
         context.delete(meal)
         try context.save()
     }
@@ -83,6 +102,7 @@ struct MealStore {
 
     @discardableResult
     func addSampleMeals() throws -> Int {
+        try ArchiveService(context: context).archiveEndedWeeks()
         let existingNames = Set(try context.fetch(FetchDescriptor<Meal>()).map { NameNormalizer.key($0.name) })
         let ingredientStore = IngredientStore(context: context)
         var added = 0
