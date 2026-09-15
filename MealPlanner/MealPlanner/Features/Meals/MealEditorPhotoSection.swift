@@ -44,10 +44,11 @@ struct MealEditorPhotoSection: View {
                             Text("Add Photo")
                         }
                         .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 160)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color(.secondarySystemFill))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .buttonStyle(.plain)
                 }
 
                 if isProcessing {
@@ -68,9 +69,9 @@ struct MealEditorPhotoSection: View {
         }
         .fullScreenCover(isPresented: $showingCamera) {
             CameraPicker(
-                onCapture: { data in
+                onCapture: { image in
                     showingCamera = false
-                    process(data)
+                    process(image)
                 },
                 onCancel: { showingCamera = false }
             )
@@ -79,13 +80,16 @@ struct MealEditorPhotoSection: View {
         .photosPicker(isPresented: $showingPhotosPicker, selection: $photosPickerItem, matching: .images)
         .onChange(of: photosPickerItem) { _, newItem in
             guard let newItem else { return }
+            isProcessing = true
             Task {
-                if let data = try? await newItem.loadTransferable(type: Data.self) {
-                    process(data)
-                } else {
+                guard let data = try? await newItem.loadTransferable(type: Data.self) else {
                     errorMessage = "That photo couldn't be used. Please try another."
+                    isProcessing = false
+                    photosPickerItem = nil
+                    return
                 }
                 photosPickerItem = nil
+                process(data)
             }
         }
         .alert("Camera Access Is Off", isPresented: $showingCameraPermissionAlert) {
@@ -127,7 +131,6 @@ struct MealEditorPhotoSection: View {
         } label: {
             label()
         }
-        .buttonStyle(.plain)
     }
 
     private func requestCameraAccess() {
@@ -148,6 +151,20 @@ struct MealEditorPhotoSection: View {
         Task {
             do {
                 let prepared = try await ImageProcessor.prepare(data)
+                photo = prepared.photo
+                thumbnail = prepared.thumbnail
+            } catch {
+                errorMessage = "That photo couldn't be used. Please try another."
+            }
+            isProcessing = false
+        }
+    }
+
+    private func process(_ image: UIImage) {
+        isProcessing = true
+        Task {
+            do {
+                let prepared = try await ImageProcessor.prepare(image)
                 photo = prepared.photo
                 thumbnail = prepared.thumbnail
             } catch {

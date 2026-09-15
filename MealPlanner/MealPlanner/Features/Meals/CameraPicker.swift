@@ -5,7 +5,7 @@ import UIKit
 /// item 1). Presented in a `.fullScreenCover` since `UIImagePickerController`
 /// doesn't support sheet presentation for the camera source.
 struct CameraPicker: UIViewControllerRepresentable {
-    var onCapture: (Data) -> Void
+    var onCapture: (UIImage) -> Void
     var onCancel: () -> Void
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
@@ -22,17 +22,17 @@ struct CameraPicker: UIViewControllerRepresentable {
     }
 
     final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let onCapture: (Data) -> Void
+        let onCapture: (UIImage) -> Void
         let onCancel: () -> Void
 
-        init(onCapture: @escaping (Data) -> Void, onCancel: @escaping () -> Void) {
+        init(onCapture: @escaping (UIImage) -> Void, onCancel: @escaping () -> Void) {
             self.onCapture = onCapture
             self.onCancel = onCancel
         }
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            if let image = info[.originalImage] as? UIImage, let data = image.jpegData(compressionQuality: 1) {
-                onCapture(data)
+            if let image = info[.originalImage] as? UIImage {
+                onCapture(image)
             } else {
                 onCancel()
             }

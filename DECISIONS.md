@@ -2,6 +2,13 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-09-15 — M5 fixes: photo processing performance
+
+- **`ImageProcessor.prepare` gained a `UIImage` overload.** The camera path (`CameraPicker`) now hands its captured `UIImage` straight to `ImageProcessor` instead of encoding it to JPEG on the main actor first (`jpegData(compressionQuality: 1)` on a 12–48 MP image was blocking the UI right after "Use Photo"). `MealEditorPhotoSection` sets `isProcessing = true` synchronously before handing off to either overload, so the progress overlay appears immediately rather than after the first `await`.
+- **The `Data` overload now downsamples via ImageIO** (`CGImageSourceCreateThumbnailAtIndex` with `kCGImageSourceThumbnailMaxPixelSize = 1600` and `kCGImageSourceCreateThumbnailWithTransform = true`) instead of decoding the full image with `UIImage(data:)`, which held the entire bitmap in memory (≈190 MB for a 48 MP photo) just to immediately downscale it. The 300×300 thumbnail is then cropped from that already-downsampled image, not the original, for both overloads.
+- **`UIGraphicsImageRendererFormat.opaque = true`** on both the resize and crop renderers — without it, a transparent PNG's alpha is composited onto black before JPEG encoding (JPEG has no alpha channel), turning transparent areas solid black. `opaque = true` fills with an opaque backing first.
+- **§14's "No camera (Simulator)" edge case is confirmed outdated, not a bug to fix.** `UIImagePickerController.isSourceTypeAvailable(.camera)` returns `true` on the Xcode 26 / iOS 26 Simulator (it now exposes a virtual camera), so "Take Photo" correctly shows there. The code still hides the option whenever that API reports no camera; the platform's answer has just changed since the spec's table was written. No code change needed — noted here so a future milestone doesn't "fix" this as a regression.
+
 ## 2026-09-14 — M5: Meal photos
 
 - **"Choose from Library" is a plain `Button` that sets `showingPhotosPicker = true`, with a `.photosPicker(isPresented:selection:matching:)` modifier on the section, rather than embedding a `PhotosPicker` view directly as a `Menu` row.** §10.6 doesn't prescribe the exact SwiftUI wiring, only the menu item's presence and label. Embedding `PhotosPicker` itself as a `Menu` item — the more obvious reading — compiles and looks correct, but verified in the Simulator that tapping it silently dismisses the menu without ever presenting the picker. The `isPresented` binding form, verified working end-to-end (select a photo → `ImageProcessor.prepare` runs → the meal's photo and thumbnail update and persist), avoids whatever SwiftUI issue causes the embedded form to swallow the tap.

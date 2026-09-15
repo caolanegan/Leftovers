@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import ImageIO
 
 struct PreparedPhoto: Sendable {
     let photo: Data
@@ -10,12 +11,30 @@ enum ImageProcessor {
     private nonisolated static let maxLongEdge: CGFloat = 1600
     private nonisolated static let thumbnailSide: CGFloat = 300
 
+    /// Decodes `data` straight to a downsampled, correctly oriented bitmap via ImageIO — never
+    /// holds the full-resolution image (≈190 MB for a 48 MP photo) in memory.
     @concurrent
     nonisolated static func prepare(_ data: Data) async throws -> PreparedPhoto {
-        guard let image = UIImage(data: data) else { throw AppError.imageProcessingFailed }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            throw AppError.imageProcessingFailed
+        }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: Int(maxLongEdge),
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            throw AppError.imageProcessingFailed
+        }
+        return try await prepare(UIImage(cgImage: cgImage))
+    }
 
-        guard let photoData = resized(image, maxLongEdge: maxLongEdge).jpegData(compressionQuality: 0.8),
-              let thumbnailData = croppedSquare(image, side: thumbnailSide).jpegData(compressionQuality: 0.7)
+    /// Prepares an already-decoded image (e.g. straight from the camera) without a Data round-trip.
+    @concurrent
+    nonisolated static func prepare(_ image: UIImage) async throws -> PreparedPhoto {
+        let resizedImage = resized(image, maxLongEdge: maxLongEdge)
+        guard let photoData = resizedImage.jpegData(compressionQuality: 0.8),
+              let thumbnailData = croppedSquare(resizedImage, side: thumbnailSide).jpegData(compressionQuality: 0.7)
         else { throw AppError.imageProcessingFailed }
 
         return PreparedPhoto(photo: photoData, thumbnail: thumbnailData)
@@ -30,6 +49,7 @@ enum ImageProcessor {
 
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
+        format.opaque = true
         let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: targetSize))
@@ -50,6 +70,7 @@ enum ImageProcessor {
 
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
+        format.opaque = true
         let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
         return renderer.image { _ in
             let drawScale = side / shortEdge

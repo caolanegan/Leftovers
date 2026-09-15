@@ -132,8 +132,8 @@ struct MealStore {
         meal.servings = draft.servings
         meal.totalMinutes = draft.totalMinutes
         meal.notes = draft.notes
-        meal.photoData = draft.photo
-        meal.thumbnailData = draft.thumbnail
+        if meal.photoData != draft.photo { meal.photoData = draft.photo }
+        if meal.thumbnailData != draft.thumbnail { meal.thumbnailData = draft.thumbnail }
         meal.updatedAt = .now
 
         for line in meal.ingredients ?? [] { context.delete(line) }

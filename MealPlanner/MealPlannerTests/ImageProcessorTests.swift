@@ -1,5 +1,7 @@
 import Testing
 import UIKit
+import ImageIO
+import UniformTypeIdentifiers
 @testable import MealPlanner
 
 @MainActor
@@ -29,6 +31,17 @@ struct ImageProcessorTests {
     }
 
     @Test
+    func fixesExifOrientationForARotatedImage() async throws {
+        // Pixel data is stored landscape (400×300) but tagged EXIF orientation 6 (.right),
+        // meaning the image must be rotated 90° to display correctly — i.e. portrait.
+        let data = try #require(Self.makeExifTaggedImageData(width: 400, height: 300, orientation: .right))
+        let prepared = try await ImageProcessor.prepare(data)
+
+        let photo = try #require(UIImage(data: prepared.photo))
+        #expect(photo.size.width < photo.size.height)
+    }
+
+    @Test
     func throwsOnInvalidData() async {
         let data = Data([0x00, 0x01, 0x02])
         await #expect(throws: AppError.imageProcessingFailed) {
@@ -46,5 +59,21 @@ struct ImageProcessorTests {
             context.fill(CGRect(origin: .zero, size: size))
         }
         return image.jpegData(compressionQuality: 1)
+    }
+
+    private static func makeExifTaggedImageData(width: Int, height: Int, orientation: CGImagePropertyOrientation) -> Data? {
+        guard let data = makeImageData(width: width, height: height),
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else { return nil }
+
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil) else {
+            return nil
+        }
+        let properties: [CFString: Any] = [kCGImagePropertyOrientation: orientation.rawValue]
+        CGImageDestinationAddImage(destination, cgImage, properties as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return output as Data
     }
 }
