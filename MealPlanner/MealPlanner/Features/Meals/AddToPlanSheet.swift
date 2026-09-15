@@ -30,11 +30,11 @@ struct AddToPlanSheet: View {
         return weekOffset == 0 ? current : WeekMath.weekID(current, adding: 1, calendar: WeekMath.appCalendar)
     }
 
-    private var existingMealNames: [Int: String] {
+    private var existingSlotMeals: [Int: Meal] {
         guard let plan = try? WeekPlanService(context: modelContext).plan(for: weekID) else { return [:] }
-        var result: [Int: String] = [:]
+        var result: [Int: Meal] = [:]
         for slot in plan.slots ?? [] where slot.mealType == selectedMealType {
-            if let name = slot.meal?.name { result[slot.dayIndex] = name }
+            if let existingMeal = slot.meal { result[slot.dayIndex] = existingMeal }
         }
         return result
     }
@@ -93,8 +93,8 @@ struct AddToPlanSheet: View {
                 Text(dayLabel(dayIndex))
                     .foregroundStyle(.primary)
                 Spacer()
-                if let existingName = existingMealNames[dayIndex] {
-                    Text("Replaces \(existingName)")
+                if let existingMeal = existingSlotMeals[dayIndex] {
+                    Text(existingMeal.id == meal.id ? "Already planned" : "Replaces \(existingMeal.name)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

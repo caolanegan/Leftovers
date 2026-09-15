@@ -11,6 +11,12 @@ struct DaySection: View {
     let onSelect: (PlanPosition) -> Void
     let onRemove: (PlanPosition) -> Void
 
+    /// A stable id for this day's header, distinct from its rows, so
+    /// `ScrollViewReader` can scroll the header itself into view — scrolling
+    /// to the section as a whole can leave the header hidden under the
+    /// `WeekNavigator` safe-area inset.
+    static func headerID(dayIndex: Int) -> String { "day-header-\(dayIndex)" }
+
     var body: some View {
         Section {
             ForEach(MealType.allCases.sorted()) { mealType in
@@ -26,6 +32,7 @@ struct DaySection: View {
             }
         } header: {
             Text(headerText)
+                .id(Self.headerID(dayIndex: dayIndex))
         }
     }
 

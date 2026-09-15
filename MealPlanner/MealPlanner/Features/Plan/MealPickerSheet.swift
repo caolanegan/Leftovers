@@ -19,13 +19,9 @@ struct MealPickerSheet: View {
     @State private var showAllMeals = false
     @State private var showingNewMeal = false
     @State private var errorMessage: String?
+    @State private var previousWeekMealIDs: Set<UUID> = []
 
     private var position: PlanPosition { PlanPosition(weekID: weekID, dayIndex: dayIndex, mealType: mealType) }
-
-    private var previousWeekMealIDs: Set<UUID> {
-        let previousWeekID = WeekMath.weekID(weekID, adding: -1, calendar: WeekMath.appCalendar)
-        return (try? WeekPlanService(context: modelContext).mealIDs(inWeek: previousWeekID)) ?? []
-    }
 
     private var filtered: [Meal] {
         var result = showAllMeals ? meals : meals.filter { $0.suits(mealType) }
@@ -95,6 +91,10 @@ struct MealPickerSheet: View {
             } message: {
                 Text(errorMessage ?? "")
             }
+        }
+        .task {
+            let previousWeekID = WeekMath.weekID(weekID, adding: -1, calendar: WeekMath.appCalendar)
+            previousWeekMealIDs = (try? WeekPlanService(context: modelContext).mealIDs(inWeek: previousWeekID)) ?? []
         }
     }
 

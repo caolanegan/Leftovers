@@ -154,6 +154,36 @@ struct WeekPlanServiceTests {
         #expect(plan.lastSharedSignature == nil)
     }
 
+    @Test func clearWeekRemovesDependentLeftoversInOtherWeeks() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let cookedPosition = PlanPosition(weekID: "2026-W38", dayIndex: 6, mealType: .dinner)
+        try service.assign(meal, at: cookedPosition)
+        let plan38 = try #require(try service.plan(for: "2026-W38"))
+        let cookedSlot = try #require((plan38.slots ?? []).first)
+
+        // Sunday dinner (W38) leftovers on Monday lunch (W39), across the week boundary.
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W39", dayIndex: 0, mealType: .lunch), leftoversOf: cookedSlot.id)
+
+        try service.clearWeek("2026-W38")
+
+        let nextWeekPlan = try #require(try service.plan(for: "2026-W39"))
+        #expect((nextWeekPlan.slots ?? []).isEmpty)
+    }
+
+    @Test func weekHasDependentLeftoversDetectsCrossWeekDependents() throws {
+        let meal = try makeMeal("Chicken fajitas")
+        let cookedPosition = PlanPosition(weekID: "2026-W38", dayIndex: 6, mealType: .dinner)
+        try service.assign(meal, at: cookedPosition)
+        let plan38 = try #require(try service.plan(for: "2026-W38"))
+        let cookedSlot = try #require((plan38.slots ?? []).first)
+
+        #expect(try service.weekHasDependentLeftovers("2026-W38") == false)
+
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W39", dayIndex: 0, mealType: .lunch), leftoversOf: cookedSlot.id)
+
+        #expect(try service.weekHasDependentLeftovers("2026-W38") == true)
+    }
+
     // MARK: - copyWeek
 
     @Test func copyWeekFillEmptyOnlyFillsEmptySlots() throws {
@@ -207,6 +237,15 @@ struct WeekPlanServiceTests {
 
         #expect(result.copied == 0)
         #expect(result.skippedDeletedMeals == 1)
+    }
+
+    @Test func copyWeekWithAnEmptySourceCreatesNoTargetPlan() throws {
+        let result = try service.copyWeek(from: "2026-W36", to: "2026-W38", mode: .fillEmpty)
+
+        #expect(result.copied == 0)
+        #expect(result.skippedDeletedMeals == 0)
+        #expect(try service.plan(for: "2026-W38") == nil)
+        #expect(try context.fetch(FetchDescriptor<WeekPlan>()).isEmpty)
     }
 
     @Test func assignOnAnEndedTargetWeekThrows() throws {

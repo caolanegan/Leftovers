@@ -86,17 +86,35 @@ struct WeekPlanService {
         guard !WeekMath.isEnded(weekID, now: now, calendar: calendar) else { throw AppError.weekIsArchived }
         guard let plan = try plan(for: weekID) else { return }
 
-        for slot in plan.slots ?? [] { context.delete(slot) }
+        let slotsToClear = plan.slots ?? []
+        for slot in slotsToClear {
+            let position = PlanPosition(weekID: weekID, dayIndex: slot.dayIndex, mealType: slot.mealType)
+            try applyDependents(.remove, of: position)
+        }
+        for slot in slotsToClear { context.delete(slot) }
         for item in plan.manualItems ?? [] { context.delete(item) }
         for state in plan.itemStates ?? [] { context.delete(state) }
         plan.lastSharedSignature = nil
         try context.save()
     }
 
+    /// Whether clearing `weekID` would also remove leftovers that depend on
+    /// one of its slots — in this week or (Sunday → Monday) the next one.
+    func weekHasDependentLeftovers(_ weekID: String) throws -> Bool {
+        guard let plan = try plan(for: weekID) else { return false }
+        for slot in plan.slots ?? [] {
+            let position = PlanPosition(weekID: weekID, dayIndex: slot.dayIndex, mealType: slot.mealType)
+            if try !dependentLeftovers(of: position).isEmpty { return true }
+        }
+        return false
+    }
+
     func copyWeek(from source: String, to target: String, mode: RandomizeMode) throws -> CopyResult {
-        let targetPlan = try fetchOrCreatePlan(for: target)
+        try ArchiveService(context: context, now: now, calendar: calendar).archiveEndedWeeks()
         let sourceSlots = try filledSlots(in: source)
         guard !sourceSlots.isEmpty else { return CopyResult(copied: 0, skippedDeletedMeals: 0) }
+
+        let targetPlan = try fetchOrCreatePlan(for: target)
 
         if mode == .replaceAll {
             let existingSlots = targetPlan.slots ?? []

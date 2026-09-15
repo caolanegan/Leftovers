@@ -12,6 +12,12 @@ struct MealSlotRow: View {
     let onTap: () -> Void
     let onRemove: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// Wide enough for "Breakfast" (the longest meal type name) plus its icon
+    /// at the current Dynamic Type size, so every row's name column lines up
+    /// without wrapping (§13.2).
+    @ScaledMetric(relativeTo: .body) private var mealTypeColumnWidth: CGFloat = 132
+
     private var slot: MealSlot? {
         (plan?.slots ?? []).first { $0.dayIndex == dayIndex && $0.mealType == mealType }
     }
@@ -26,12 +32,6 @@ struct MealSlotRow: View {
     private var leftoverLabel: String? { snapshot?.leftoverSourceLabel }
     private var isFilled: Bool { mealName != nil }
 
-    /// `nil` (a non-tappable row) unless this is a filled, read-only slot.
-    private var archivedRoute: AppRoute? {
-        guard isReadOnly, isFilled, let slot else { return nil }
-        return .archivedSlot(slot)
-    }
-
     private var recipeRoute: AppRoute? {
         guard let meal = slot?.meal else { return nil }
         return .meal(meal)
@@ -40,7 +40,7 @@ struct MealSlotRow: View {
     var body: some View {
         Group {
             if isReadOnly {
-                NavigationLink(value: archivedRoute) { rowContent }
+                readOnlyContent
             } else {
                 Button(action: onTap) { rowContent }
                     .buttonStyle(.plain)
@@ -62,35 +62,82 @@ struct MealSlotRow: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
+    /// Filled read-only rows push to `ArchivedSlotDetailView`; empty ones are
+    /// a plain, non-tappable "—" with no chevron.
+    @ViewBuilder
+    private var readOnlyContent: some View {
+        if isFilled, let slot {
+            NavigationLink(value: AppRoute.archivedSlot(slot)) { rowContent }
+        } else {
+            rowContent
+        }
+    }
+
+    /// A manual icon + text pairing rather than `Label`: `Label` can drop its
+    /// title entirely (icon-only) when squeezed into a frame narrower than
+    /// its ideal width, which a plain `HStack` never does.
+    private var mealTypeLabel: some View {
+        HStack(spacing: 4) {
+            Image(systemName: mealType.symbolName)
+            Text(mealType.displayName)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private var nameOrPlaceholder: some View {
+        if let mealName {
+            Text(mealName)
+                .foregroundStyle(.primary)
+        } else if isReadOnly {
+            Text("—")
+                .foregroundStyle(.secondary)
+        } else {
+            Text("Add \(mealType.displayName.lowercased())")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var trailingChevron: some View {
+        if !isReadOnly {
+            Image(systemName: "chevron.right")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    @ViewBuilder
+    private var leftoversCaption: some View {
+        if isLeftovers, let leftoverLabel {
+            Label("Leftovers · \(leftoverLabel)", systemImage: "arrow.uturn.backward")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private var rowContent: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Label(mealType.displayName, systemImage: mealType.symbolName)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 110, alignment: .leading)
-
-                if let mealName {
-                    Text(mealName)
-                        .foregroundStyle(.primary)
-                } else {
-                    Text("Add \(mealType.displayName.lowercased())")
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            if dynamicTypeSize.isAccessibilitySize {
+                mealTypeLabel
+                HStack {
+                    nameOrPlaceholder
+                    Spacer()
+                    trailingChevron
                 }
-
-                Spacer()
-
-                if !isReadOnly {
-                    Image(systemName: "chevron.right")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+            } else {
+                HStack {
+                    mealTypeLabel
+                        .frame(width: mealTypeColumnWidth, alignment: .leading)
+                    nameOrPlaceholder
+                    Spacer()
+                    trailingChevron
                 }
             }
 
-            if isLeftovers, let leftoverLabel {
-                Label("Leftovers · \(leftoverLabel)", systemImage: "arrow.uturn.backward")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            leftoversCaption
         }
         .contentShape(Rectangle())
     }

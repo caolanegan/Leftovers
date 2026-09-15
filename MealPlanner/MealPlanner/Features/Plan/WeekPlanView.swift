@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 import os
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlanner", category: "WeekPlan")
@@ -69,13 +70,13 @@ private struct WeekPlanContentView: View {
                         onSelect: { pickerPosition = $0 },
                         onRemove: { remove(at: $0) }
                     )
-                    .id(dayIndex)
                 }
             }
             .listStyle(.insetGrouped)
             .onAppear {
                 if weekID == currentWeekID {
-                    proxy.scrollTo(WeekMath.dayIndex(for: .now, calendar: WeekMath.appCalendar), anchor: .top)
+                    let todayIndex = WeekMath.dayIndex(for: .now, calendar: WeekMath.appCalendar)
+                    proxy.scrollTo(DaySection.headerID(dayIndex: todayIndex), anchor: .top)
                 }
             }
         }
@@ -98,6 +99,7 @@ private struct WeekPlanContentView: View {
                     } else {
                         Button("Copy Last Week") { copyLastWeekTapped() }
                         Button("Clear Week", role: .destructive) { pendingClearWeek = true }
+                            .disabled(filledCount == 0)
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -117,7 +119,7 @@ private struct WeekPlanContentView: View {
             Button("Clear Week", role: .destructive) { clearWeek() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This removes every meal planned for this week. This can't be undone.")
+            Text(clearWeekMessage)
         }
         .confirmationDialog(
             "Copy Meals",
@@ -129,7 +131,7 @@ private struct WeekPlanContentView: View {
             Button("Replace This Week", role: .destructive) { performCopy(request, mode: .replaceAll) }
             Button("Cancel", role: .cancel) {}
         } message: { _ in
-            Text("This replaces meals already planned this week.")
+            Text("Fill Empty Meals keeps what's already planned. Replace This Week removes it first.")
         }
         .task(id: weekID) {
             guard isReadOnly, plan?.isArchived != true else { return }
@@ -174,6 +176,15 @@ private struct WeekPlanContentView: View {
         }
     }
 
+    private var clearWeekMessage: String {
+        let hasDependents = (try? WeekPlanService(context: modelContext).weekHasDependentLeftovers(weekID)) ?? false
+        var message = "This removes every meal planned for this week. This can't be undone."
+        if hasDependents {
+            message += " Leftovers planned from these meals will also be removed."
+        }
+        return message
+    }
+
     private func clearWeek() {
         do {
             try WeekPlanService(context: modelContext).clearWeek(weekID)
@@ -185,25 +196,34 @@ private struct WeekPlanContentView: View {
 
     private func copyLastWeekTapped() {
         let lastWeekID = WeekMath.weekID(weekID, adding: -1, calendar: WeekMath.appCalendar)
-        let lastWeekIsEmpty = ((try? WeekPlanService(context: modelContext).mealIDs(inWeek: lastWeekID)) ?? []).isEmpty
-        guard !lastWeekIsEmpty else {
-            infoMessage = "Last week has no meals planned."
-            return
-        }
-        if filledCount == 0 {
-            performCopy(CopyRequest(source: lastWeekID, target: weekID), mode: .fillEmpty)
-        } else {
-            pendingCopy = CopyRequest(source: lastWeekID, target: weekID)
-        }
+        startCopy(source: lastWeekID, target: weekID)
     }
 
     private func copyToThisWeekTapped() {
-        pendingCopy = CopyRequest(source: weekID, target: currentWeekID)
+        startCopy(source: weekID, target: currentWeekID)
+    }
+
+    /// Shared by "Copy Last Week" and "Copy to This Week" (§10.1): an empty
+    /// source has nothing to offer; an empty target needs no confirmation
+    /// since Fill Empty and Replace would do the same thing.
+    private func startCopy(source: String, target: String) {
+        let sourceIsEmpty = ((try? WeekPlanService(context: modelContext).mealIDs(inWeek: source)) ?? []).isEmpty
+        guard !sourceIsEmpty else {
+            infoMessage = "That week has no meals to copy."
+            return
+        }
+        let targetIsEmpty = ((try? WeekPlanService(context: modelContext).mealIDs(inWeek: target)) ?? []).isEmpty
+        if targetIsEmpty {
+            performCopy(CopyRequest(source: source, target: target), mode: .fillEmpty)
+        } else {
+            pendingCopy = CopyRequest(source: source, target: target)
+        }
     }
 
     private func performCopy(_ request: CopyRequest, mode: RandomizeMode) {
         do {
             let result = try WeekPlanService(context: modelContext).copyWeek(from: request.source, to: request.target, mode: mode)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             if result.skippedDeletedMeals > 0 {
                 let count = result.skippedDeletedMeals
                 infoMessage = "\(count) meal\(count == 1 ? "" : "s") couldn't be copied because \(count == 1 ? "it's" : "they've") been deleted."

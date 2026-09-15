@@ -2,6 +2,12 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-09-15 — M6 fixes: plan layout, copy flow and read-only rows
+
+- **`MealSlotRow`'s meal-type column uses a manual `HStack(Image, Text)` instead of `Label`.** Verified in the Simulator that `Label(title, systemImage:)` inside a width-constrained `.frame()` can silently drop its title and render icon-only, rather than wrapping or truncating — worse than the original "Break-fast" wrapping bug it was meant to fix. A plain `HStack` doesn't have that failure mode. The column width is `@ScaledMetric` off a baseline (132pt) generous enough for "Breakfast" plus its icon at the default Dynamic Type size, combined with `.fixedSize(horizontal: true, vertical: false)` on the `Text` so it's never compressed below that.
+- **`ScrollViewReader` now scrolls to the day header's own id, not the whole `Section`.** Scrolling to today's `DaySection` left the "· TODAY" header hidden behind the `WeekNavigator` safe-area inset — apparently `scrollTo(anchor: .top)` on a `List` `Section` doesn't reliably account for a floating `safeAreaInset` overlay. Tagging the header `Text` itself with `DaySection.headerID(dayIndex:)` and scrolling to that fixed it, verified in the Simulator.
+- **"Copy Last Week" and "Copy to This Week" now share one `startCopy(source:target:)` path** (empty-source alert, immediate fill-empty when the target is empty, otherwise the Fill Empty/Replace confirmation) instead of two divergent implementations — §10.1 describes the same behaviour for both, just with source and target swapped.
+
 ## 2026-09-15 — M6: Weekly plan & archiving
 
 - **§10.3 (leftover prompts, including the dependent-leftovers dialog) is entirely deferred to M7.** It isn't in M6's read list, and can't actually be exercised yet: nothing in M6 can create a leftover-linked `MealSlot` (that's `WeekPlanService+Leftovers`, M7). `WeekPlanService.clearSlot(at:dependents:)` and `dependentLeftovers(of:)` are still fully implemented now (they're core `§8.2` "reading, slots, copy" — plain queries by `leftoverOfSlotID`, no `LeftoverRules` algorithm needed) so `copyWeek`'s leftover-remapping and `MealStore.delete`'s dependent-cleanup are correct and unit-tested. The M6 UI (`MealSlotRow` swipe/context-menu "Remove", `MealPickerSheet`'s "Remove from Plan") just calls `clearSlot(dependents: .remove)` directly with no confirmation dialog — safe since the dependents set is always empty today. M7 adds `DependentLeftoversDialog` and wires the choice in.
