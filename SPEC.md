@@ -1,6 +1,6 @@
 # MealPlanner — Product & Technical Specification
 
-> **Version:** 1.3 (MVP + post-MVP §18) · **Date:** 2026-09-15 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
+> **Version:** 1.4 (MVP + post-MVP §18) · **Date:** 2026-09-15 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
 >
 > **To the implementing model:** This document is the source of truth. Build the app **one milestone at a time** (§16). Each milestone lists the spec sections it needs and the acceptance criteria that must pass before it counts as done. If something here is ambiguous, pick the simplest option that fits the spec and write it down in `DECISIONS.md`. Do **not** add features that are not in this document.
 
@@ -8,6 +8,7 @@
 
 | Version | Changes |
 |---------|---------|
+| 1.4 | The Plan screen no longer scrolls to today when it opens; it always starts at Monday (§10.1). |
 | 1.3 | **"Good as Leftovers"** toggle per meal: the leftovers prompt and leftover actions only appear for meals that keep well (§3, §6.4, §7.7, §8.2, §10.1, §10.3, §10.6, §14, Appendix A). New milestone **M7.1**. |
 | 1.2 | Added §18, **post-MVP** recipe photo import via the Claude API (milestones M13–M15). Nothing in M1–M12 changes. |
 | 1.1 | Past weeks become a frozen record (§6.7, §7.8, §8.1). A master ingredient library, with shopping-list merging by ingredient ID instead of name (§6.4, §10.9). Shopping items can be added by hand (§10.11). Leftovers (§7.7, §10.3). Randomising: last week's meals are excluded; randomise by meal type; re-roll a single slot (§7.6, §10.1). Meal photos (§8.5, §10.6). WhatsApp via `wa.me` links, including sending straight to a saved contact (§12). The "need more" logic is now explained in plain English (§7.5). |
@@ -1203,7 +1204,7 @@ Wireframes show layout intent only. Use standard components.
 **Layout**
 
 - `List(.insetGrouped)` with 7 `DaySection`s, each holding 3 `MealSlotRow`s.
-- Section header: weekday and date in upper case, plus " · TODAY" when it applies. When the current week is shown, scroll to today on appear.
+- Section header: weekday and date in upper case, plus " · TODAY" when it applies. The list always opens at Monday; there's no automatic scroll to today.
 - `WeekNavigator` sits in a `safeAreaInset(edge: .top)` with `.bar` material. Chevrons move ±1 week, and tapping the title jumps to this week. The title is `WeekMath.title · dateRangeText`, with the subtitle "N of 21 meals planned" (leftovers count as planned).
 
 **Read-only (ended) weeks**
