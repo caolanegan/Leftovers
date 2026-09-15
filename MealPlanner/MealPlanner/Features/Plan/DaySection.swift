@@ -90,8 +90,11 @@ struct DaySection: View {
         return context.sourceLabels[sourceID]
     }
 
+    /// "Mark as Leftovers" and "Leftovers for Tomorrow's …" are only offered
+    /// for a meal that's still `goodAsLeftovers` (§7.7 v1.3, §10.1) —
+    /// `LeftoverRules` itself doesn't know about the flag, so it's checked here.
     private func menuFlags(_ mealType: MealType, position: PlanPosition) -> PlanSlotMenuFlags {
-        guard !isReadOnly, let slot = slot(mealType) else { return .none }
+        guard !isReadOnly, let slot = slot(mealType), slot.meal?.goodAsLeftovers != false else { return .none }
         return LeftoverRules.slotMenuFlags(
             mealID: slot.meal?.id, isLeftovers: slot.isLeftovers, position: position,
             context: context, calendar: WeekMath.appCalendar

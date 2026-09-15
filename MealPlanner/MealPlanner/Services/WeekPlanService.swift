@@ -241,7 +241,9 @@ struct WeekPlanService {
         }
     }
 
-    private func fetchMeal(id: UUID) throws -> Meal? {
+    /// Internal, not `private`, so `WeekPlanService+Leftovers.swift` can reuse
+    /// it to check a meal's `goodAsLeftovers` flag (§7.7 v1.3).
+    func fetchMeal(id: UUID) throws -> Meal? {
         var descriptor = FetchDescriptor<Meal>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
         return try context.fetch(descriptor).first

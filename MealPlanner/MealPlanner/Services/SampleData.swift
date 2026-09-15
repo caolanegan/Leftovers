@@ -30,6 +30,7 @@ enum SampleData {
         let notes: String
         let lines: [RecipeLine]
         let steps: [String]
+        let goodAsLeftovers: Bool
 
         init(
             name: String,
@@ -38,7 +39,8 @@ enum SampleData {
             totalMinutes: Int?,
             notes: String = "",
             lines: [RecipeLine] = [],
-            steps: [String] = []
+            steps: [String] = [],
+            goodAsLeftovers: Bool = true
         ) {
             self.name = name
             self.types = types
@@ -47,6 +49,7 @@ enum SampleData {
             self.notes = notes
             self.lines = lines
             self.steps = steps
+            self.goodAsLeftovers = goodAsLeftovers
         }
     }
 
@@ -106,7 +109,8 @@ enum SampleData {
                 "Mix the oats, milk, yoghurt and honey in a jar.",
                 "Cover and refrigerate overnight.",
                 "Top with blueberries before serving.",
-            ]
+            ],
+            goodAsLeftovers: false
         ),
         MealInfo(
             name: "Scrambled eggs on toast",
@@ -125,7 +129,8 @@ enum SampleData {
                 "Melt the butter over a low heat.",
                 "Stir the eggs gently until just set.",
                 "Serve on hot buttered toast.",
-            ]
+            ],
+            goodAsLeftovers: false
         ),
         MealInfo(
             name: "Chicken Caesar wrap",
@@ -143,7 +148,8 @@ enum SampleData {
                 "Toss the lettuce with the dressing.",
                 "Fill the wraps with lettuce, chicken and parmesan.",
                 "Roll up tightly and slice in half.",
-            ]
+            ],
+            goodAsLeftovers: false
         ),
         MealInfo(
             name: "Tomato soup",
@@ -226,7 +232,8 @@ enum SampleData {
             types: [.lunch, .dinner],
             servings: 1,
             totalMinutes: nil,
-            notes: "Night off from cooking."
+            notes: "Night off from cooking.",
+            goodAsLeftovers: false
         ),
     ]
 }

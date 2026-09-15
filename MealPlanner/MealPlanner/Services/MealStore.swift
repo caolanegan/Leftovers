@@ -42,6 +42,7 @@ struct MealStore {
         copy.notes = meal.notes
         copy.photoData = meal.photoData
         copy.thumbnailData = meal.thumbnailData
+        copy.goodAsLeftovers = meal.goodAsLeftovers
         copy.isFavorite = false
         context.insert(copy)
 
@@ -113,6 +114,7 @@ struct MealStore {
             meal.servings = sample.servings
             meal.totalMinutes = sample.totalMinutes
             meal.notes = sample.notes
+            meal.goodAsLeftovers = sample.goodAsLeftovers
             context.insert(meal)
 
             for (index, line) in sample.lines.enumerated() {
@@ -152,6 +154,7 @@ struct MealStore {
         meal.servings = draft.servings
         meal.totalMinutes = draft.totalMinutes
         meal.notes = draft.notes
+        meal.goodAsLeftovers = draft.goodAsLeftovers
         if meal.photoData != draft.photo { meal.photoData = draft.photo }
         if meal.thumbnailData != draft.thumbnail { meal.thumbnailData = draft.thumbnail }
         meal.updatedAt = .now

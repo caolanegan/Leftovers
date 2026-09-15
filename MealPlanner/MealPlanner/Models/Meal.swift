@@ -12,6 +12,7 @@ final class Meal {
     var totalMinutes: Int? = nil
     var notes: String = ""
     var isFavorite: Bool = false
+    var goodAsLeftovers: Bool = true                              // §7.7: false = never offered as leftovers
     @Attribute(.externalStorage) var photoData: Data? = nil       // JPEG, long edge ≤ 1600 px
     @Attribute(.externalStorage) var thumbnailData: Data? = nil   // JPEG, 300×300
     var createdAt: Date = Date.now

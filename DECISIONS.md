@@ -2,6 +2,12 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-09-15 — M7.1: "Good as Leftovers"
+
+- **`Meal.goodAsLeftovers` added directly to `SchemaV1`, no migration stage**, per M7.1's instruction — the app hasn't been released. The Simulator's existing store (built against the pre-M7.1 schema) failed to open with the new field until the app was deleted from the Simulator and reinstalled; no code change needed, just noted here per the milestone's own instruction to record it.
+- **`WeekPlanService.fetchMeal(id:)` changed from `private` to internal**, same precedent as `slot(at:in:)` (M7's decision note): `WeekPlanService+Leftovers.swift` needs it to look up a candidate meal's `goodAsLeftovers` flag before calling `LeftoverRules`, and it was already exactly the lookup `copyWeek` uses.
+- **The context-menu gate ("Mark as Leftovers", "Leftovers for Tomorrow's …") lives in `DaySection.menuFlags`, not in `LeftoverRules.slotMenuFlags`.** §7.7's v1.3 note is explicit that `LeftoverRules` "stays a pure function of occurrences and doesn't know about the flag" — only `WeekPlanService.leftoverSourceCandidates` applies it. `slotMenuFlags` is itself an addition beyond §7.7's given interface (M6's decision note), precomputed per-row from `PlanWeekContext` with no further service calls, so `DaySection` checks `slot.meal?.goodAsLeftovers` itself and short-circuits to `.none` before calling into `LeftoverRules` — keeping the domain function pure while still gating both menu items (per §10.1, both require the flag).
+
 ## 2026-09-15 — M7: Leftovers
 
 - **`WeekPlanService.assign` gained a `dependents: DependentLeftoversAction = .keepAsCooked` parameter**, not in §8.2's skeleton. The spec says replacing a cooked slot's meal while leftovers depend on it must resolve those dependents the same way `clearSlot` does (§8.2: "the UI asks first"), but `assign`'s given signature has no way to carry that choice through — only `clearSlot` takes a `dependents:` parameter. Added it with a harmless default so every existing M6 call site is unaffected; `assign` only consults it when it's actually replacing a **cooked** slot's meal with a **different** meal (mirroring `clearSlot`'s own dependents check), so assigning the same meal or assigning over a leftovers slot never touches it.

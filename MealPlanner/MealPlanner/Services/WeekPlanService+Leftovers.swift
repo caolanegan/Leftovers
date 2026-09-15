@@ -12,8 +12,12 @@ enum AssignmentDecision {
 }
 
 extension WeekPlanService {
+    /// `[]` without consulting `LeftoverRules` when the meal isn't
+    /// `goodAsLeftovers` (§7.7 v1.3) — `LeftoverRules` stays a pure function
+    /// of occurrences and doesn't know about the flag; this is where it's applied.
     func leftoverSourceCandidates(mealID: UUID, target: PlanPosition) throws -> [PlanOccurrence] {
-        LeftoverRules.sourceCandidates(
+        guard try fetchMeal(id: mealID)?.goodAsLeftovers == true else { return [] }
+        return LeftoverRules.sourceCandidates(
             mealID: mealID, target: target, occurrences: try occurrences(around: target.weekID), calendar: calendar
         )
     }
@@ -36,9 +40,10 @@ extension WeekPlanService {
 
     /// `target` must be empty and in an editable week (§10.1's "Leftovers for
     /// Tomorrow's Lunch/Dinner" only offers this when that's already true).
+    /// No-op if the meal isn't `goodAsLeftovers` (§7.7 v1.3).
     func addLeftovers(from source: PlanPosition, to target: PlanPosition) throws {
         guard let sourcePlan = try plan(for: source.weekID), let sourceSlot = slot(at: source, in: sourcePlan),
-              let meal = sourceSlot.meal
+              let meal = sourceSlot.meal, meal.goodAsLeftovers
         else { return }
         try assign(meal, at: target, leftoversOf: sourceSlot.id)
     }

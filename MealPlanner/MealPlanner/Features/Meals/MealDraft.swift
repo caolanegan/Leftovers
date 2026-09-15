@@ -10,6 +10,7 @@ struct MealDraft: Equatable {
     var thumbnail: Data? = nil
     var lines: [RecipeLineDraft] = []
     var steps: [StepDraft] = []
+    var goodAsLeftovers = true
 
     init() {}
 
@@ -21,6 +22,7 @@ struct MealDraft: Equatable {
         notes = meal.notes
         photo = meal.photoData
         thumbnail = meal.thumbnailData
+        goodAsLeftovers = meal.goodAsLeftovers
         lines = meal.sortedIngredients.compactMap { line in
             guard let ingredient = line.ingredient else { return nil }
             return RecipeLineDraft(

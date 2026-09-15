@@ -26,10 +26,11 @@ struct WeekPlanServiceTests {
         service = WeekPlanService(context: context, now: now, calendar: calendar)
     }
 
-    private func makeMeal(_ name: String) throws -> Meal {
+    private func makeMeal(_ name: String, goodAsLeftovers: Bool = true) throws -> Meal {
         var draft = MealDraft()
         draft.name = name
         draft.mealTypes = [.breakfast, .lunch, .dinner]
+        draft.goodAsLeftovers = goodAsLeftovers
         return try mealStore.create(from: draft)
     }
 
@@ -483,5 +484,60 @@ struct WeekPlanServiceTests {
         let formerLeftover = try #require((plan.slots ?? []).first { $0.dayIndex == 1 })
         #expect(formerLeftover.leftoverOfSlotID == nil)
         #expect(formerLeftover.meal?.id == meal.id)
+    }
+
+    // MARK: - Good as Leftovers (M7.1)
+
+    @Test func leftoverSourceCandidatesIsEmptyWhenTheMealIsNotGoodAsLeftovers() throws {
+        let meal = try makeMeal("Scrambled eggs", goodAsLeftovers: false)
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .breakfast))
+
+        let candidates = try service.leftoverSourceCandidates(
+            mealID: meal.id, target: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .breakfast)
+        )
+
+        #expect(candidates.isEmpty)
+    }
+
+    @Test func addLeftoversIsANoOpWhenTheMealIsNotGoodAsLeftovers() throws {
+        let meal = try makeMeal("Scrambled eggs", goodAsLeftovers: false)
+        let source = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .breakfast)
+        try service.assign(meal, at: source)
+
+        try service.addLeftovers(from: source, to: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .breakfast))
+
+        let plan = try #require(try service.plan(for: "2026-W38"))
+        #expect((plan.slots ?? []).count == 1)
+    }
+
+    @Test func assignmentDecisionIsReadyToAssignWhenTheMealIsNotGoodAsLeftovers() throws {
+        let meal = try makeMeal("Scrambled eggs", goodAsLeftovers: false)
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .breakfast))
+
+        let decision = try service.assignmentDecision(
+            forAssigning: meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .breakfast)
+        )
+
+        guard case .readyToAssign = decision else {
+            Issue.record("Expected readyToAssign, got \(decision)")
+            return
+        }
+    }
+
+    @Test func assignmentDecisionStillNeedsDependentPromptWhenTheMealIsNotGoodAsLeftovers() throws {
+        let meal = try makeMeal("Scrambled eggs", goodAsLeftovers: false)
+        let otherMeal = try makeMeal("Veggie chilli")
+        let cookedPosition = PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .breakfast)
+        try service.assign(meal, at: cookedPosition)
+        let cookedSlot = try #require((try service.plan(for: "2026-W38"))?.slots?.first)
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch), leftoversOf: cookedSlot.id)
+
+        let decision = try service.assignmentDecision(forAssigning: otherMeal, at: cookedPosition)
+
+        guard case .needsDependentPrompt(let dependents) = decision else {
+            Issue.record("Expected needsDependentPrompt, got \(decision)")
+            return
+        }
+        #expect(dependents.count == 1)
     }
 }

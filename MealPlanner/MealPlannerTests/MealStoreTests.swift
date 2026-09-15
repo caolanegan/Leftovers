@@ -33,6 +33,23 @@ struct MealStoreTests {
         #expect(try context.fetch(FetchDescriptor<Meal>()).count == 8)
     }
 
+    @Test func addSampleMealsSetsGoodAsLeftoversPerAppendixA() throws {
+        _ = try mealStore.addSampleMeals()
+        let meals = try context.fetch(FetchDescriptor<Meal>())
+        func goodAsLeftovers(_ name: String) throws -> Bool {
+            try #require(meals.first { $0.name == name }).goodAsLeftovers
+        }
+
+        #expect(try goodAsLeftovers("Tomato soup") == true)
+        #expect(try goodAsLeftovers("Spaghetti bolognese") == true)
+        #expect(try goodAsLeftovers("Chicken fajitas") == true)
+        #expect(try goodAsLeftovers("Veggie chilli") == true)
+        #expect(try goodAsLeftovers("Overnight oats") == false)
+        #expect(try goodAsLeftovers("Scrambled eggs on toast") == false)
+        #expect(try goodAsLeftovers("Chicken Caesar wrap") == false)
+        #expect(try goodAsLeftovers("Eat out") == false)
+    }
+
     @Test func createBuildsAMealFromADraft() throws {
         let onion = try ingredientStore.create(name: "Onion", defaultUnit: .item, category: .produce)
 
@@ -51,6 +68,28 @@ struct MealStoreTests {
         #expect(meal.mealTypes == [.lunch, .dinner])
         #expect(meal.sortedIngredients.map(\.ingredient?.name) == ["Onion"])
         #expect(meal.sortedSteps.map(\.text) == ["Simmer."])
+    }
+
+    @Test func createRoundTripsGoodAsLeftovers() throws {
+        var draft = MealDraft()
+        draft.name = "Scrambled eggs"
+        draft.goodAsLeftovers = false
+
+        let meal = try mealStore.create(from: draft)
+
+        #expect(meal.goodAsLeftovers == false)
+    }
+
+    @Test func updateRoundTripsGoodAsLeftovers() throws {
+        var draft = MealDraft()
+        draft.name = "Soup"
+        let meal = try mealStore.create(from: draft)
+        #expect(meal.goodAsLeftovers == true)
+
+        draft.goodAsLeftovers = false
+        try mealStore.update(meal, from: draft)
+
+        #expect(meal.goodAsLeftovers == false)
     }
 
     @Test func createWithInvalidDraftThrows() throws {
@@ -83,6 +122,7 @@ struct MealStoreTests {
 
         var draft = MealDraft()
         draft.name = "Soup"
+        draft.goodAsLeftovers = false
         draft.lines = [RecipeLineDraft(id: UUID(), ingredientID: onion.id, ingredientName: onion.name, quantity: 1, unit: .item, note: "")]
         let meal = try mealStore.create(from: draft)
         try mealStore.toggleFavorite(meal)
@@ -91,6 +131,7 @@ struct MealStoreTests {
 
         #expect(copy.name == "Soup (copy)")
         #expect(copy.isFavorite == false)
+        #expect(copy.goodAsLeftovers == false)
         #expect(copy.sortedIngredients.map(\.ingredient?.name) == ["Onion"])
         #expect(meal.isFavorite == true)
     }

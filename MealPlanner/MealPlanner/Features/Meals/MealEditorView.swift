@@ -121,12 +121,16 @@ struct MealEditorView: View {
             ForEach(MealType.allCases) { type in
                 Toggle(type.displayName, isOn: mealTypeBinding(type))
             }
+            Toggle("Good as Leftovers", systemImage: "arrow.uturn.backward", isOn: $draft.goodAsLeftovers)
         } header: {
             Text("Suitable For")
         } footer: {
-            if draft.mealTypes.isEmpty {
-                Text("Choose at least one.")
-                    .foregroundStyle(.red)
+            VStack(alignment: .leading, spacing: 4) {
+                if draft.mealTypes.isEmpty {
+                    Text("Choose at least one.")
+                        .foregroundStyle(.red)
+                }
+                Text("When on, planning this meal again within 3 days asks if it's leftovers.")
             }
         }
     }
