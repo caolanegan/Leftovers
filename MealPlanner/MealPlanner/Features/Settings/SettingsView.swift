@@ -24,7 +24,7 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .alert(
-            "Added \(addedMealsCount ?? 0) example meals.",
+            addedMealsAlertTitle,
             isPresented: Binding(get: { addedMealsCount != nil }, set: { if !$0 { addedMealsCount = nil } })
         ) {
             Button("OK", role: .cancel) {}
@@ -34,6 +34,13 @@ struct SettingsView: View {
         } message: {
             Text(errorMessage ?? "")
         }
+    }
+
+    private var addedMealsAlertTitle: String {
+        guard let addedMealsCount, addedMealsCount > 0 else {
+            return "Those example meals are already in your library."
+        }
+        return "Added \(addedMealsCount) example meals."
     }
 
     private var versionText: String {

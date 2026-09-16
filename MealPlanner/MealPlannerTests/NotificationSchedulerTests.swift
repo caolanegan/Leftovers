@@ -37,4 +37,12 @@ struct NotificationSchedulerTests {
         let text = NotificationScheduler.footerText(weekday: 1, minutes: 1080, now: now, calendar: calendar, locale: locale)
         #expect(text == "Next reminder: Sunday 20 Sep at 18:00")
     }
+
+    @Test func footerTextUsesTheGivenLocalesHourCycle() throws {
+        let now = try date("2026-09-14 12:00")
+        let text = NotificationScheduler.footerText(
+            weekday: 1, minutes: 1080, now: now, calendar: calendar, locale: Locale(identifier: "en_US")
+        )
+        #expect(text == "Next reminder: Sunday 20 Sep at 6:00\u{202F}PM")  // narrow no-break space before AM/PM
+    }
 }

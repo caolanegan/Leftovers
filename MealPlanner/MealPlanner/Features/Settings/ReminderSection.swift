@@ -75,7 +75,7 @@ struct ReminderSection: View {
             return "Notifications are turned off for MealPlanner. Turn them on in Settings to get this reminder."
         }
         return NotificationScheduler.footerText(
-            weekday: weekday, minutes: minutes, now: .now, calendar: calendar, locale: Locale(identifier: "en_GB")
+            weekday: weekday, minutes: minutes, now: .now, calendar: calendar, locale: .current
         )
     }
 
@@ -126,16 +126,12 @@ struct ReminderSection: View {
         }
     }
 
+    /// Display-only: updates the footer's permission warning. Rescheduling
+    /// on `scenePhase == .active` is `RootTabView`'s job (§9.2) — it runs
+    /// whether or not Settings is open. This only reacts to the user's own
+    /// actions (toggle on, day/time change), so the two never both write.
     private func refreshStatus() async {
-        let status = await scheduler.authorizationStatus()
-        authorizationStatus = status
-        guard enabled else { return }
-        switch status {
-        case .authorized, .provisional, .ephemeral:
-            await schedule()
-        default:
-            break  // Denied: the footer warns. The stored toggle is left alone.
-        }
+        authorizationStatus = await scheduler.authorizationStatus()
     }
 
     private func openAppSettings() {

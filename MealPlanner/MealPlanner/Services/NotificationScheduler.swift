@@ -60,15 +60,26 @@ struct NotificationScheduler: NotificationScheduling {
     }
 
     /// §11.3's footer copy, e.g. "Next reminder: Sunday 20 Sep at 18:00".
+    /// The "Next reminder"/"at" wording and the day/month layout are fixed
+    /// (British) English; only the time respects `locale`'s hour cycle, so a
+    /// phone set to 12-hour time sees "6:00 PM" instead of a forced "18:00".
     static func footerText(weekday: Int, minutes: Int, now: Date, calendar: Calendar, locale: Locale) -> String {
         guard let next = nextReminderDate(weekday: weekday, minutes: minutes, after: now, calendar: calendar) else {
             return ""
         }
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.locale = locale
-        formatter.dateFormat = "EEEE d MMM 'at' HH:mm"
-        return "Next reminder: \(formatter.string(from: next))"
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.calendar = calendar
+        dateFormatter.timeZone = calendar.timeZone
+        dateFormatter.locale = locale
+        dateFormatter.dateFormat = "EEEE d MMM"
+
+        let timeFormatter = DateFormatter()
+        timeFormatter.calendar = calendar
+        timeFormatter.timeZone = calendar.timeZone
+        timeFormatter.locale = locale
+        timeFormatter.setLocalizedDateFormatFromTemplate("jm")
+
+        return "Next reminder: \(dateFormatter.string(from: next)) at \(timeFormatter.string(from: next))"
     }
 }
