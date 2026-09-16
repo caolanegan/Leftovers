@@ -2,6 +2,13 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-09-16 — M10: Export & WhatsApp
+
+- **"Send to `<Name>` on WhatsApp" is gated on a non-empty (trimmed) name as well as a `.valid` phone**, not just the phone as §12.2 literally says ("only if the saved phone is `.valid`"). A saved number with no name would otherwise render as "Send to  on WhatsApp" (double space, no name) — requiring both is the simplest fix and matches §14's "Invalid saved WhatsApp number → 'Send to `<Name>`' is hidden" intent that the row always reads sensibly.
+- **The share menu (⬆︎) is shown even on an ended (read-only) week**, while `+` (Add Item) and `⋯` (Untick All) stay hidden. §10.10 is explicit that "Sharing is still allowed" for a frozen list, and `WeekPlanService.markShared` (M9) already no-ops safely on an archived week — so the menu only needed to move outside the `!isReadOnly` toolbar block, no service changes.
+- **`SharedChangedBanner`'s "Share Again" button runs the same action as the toolbar's "Share List…"** (the system share sheet), rather than replaying whichever channel was last used — §10.10 doesn't specify which channel "Share Again" should use, and the last-used channel isn't tracked (`markShared` only stores a signature, not which action set it). The share sheet itself offers WhatsApp among its options.
+- **The week's per-day meal-plan export data (`[ExportDay]`) is built directly in `ShoppingListContentView`**, not as a new `WeekPlanService` method — it has a single call site (the exporter), mirrors the same live/archived branch `listData` already uses, and §16's M10 file list doesn't call for a new service file.
+
 ## 2026-09-15 — M9: Shopping list & hand-added items
 
 - **The share menu (§10.10's "⬆︎", §12) and `SharedChangedBanner` are not built.** M9's own Build list is explicit: `ShoppingListView`, `ShoppingItemRow`, `AddShoppingItemSheet`, the archived list display, the badge, Untick All — no `ShareService`, no share menu, no banner. Those, plus `lastSharedSignature`'s UI, are M10's read list (§10.10 "share menu, banner", §12). `WeekPlanService+Shopping.markShared` is still built now (it's in §8.2's given interface) but nothing calls it yet.
