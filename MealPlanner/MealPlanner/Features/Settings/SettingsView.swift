@@ -1,17 +1,54 @@
 import SwiftUI
 import SwiftData
+import os
 
-/// Temporary Settings screen (SPEC §16 M3). Reminder and About sections
-/// arrive in M11 (§10.12).
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlanner", category: "Settings")
+
+/// §10.12.
 struct SettingsView: View {
+    @Environment(\.modelContext) private var modelContext
+    @State private var addedMealsCount: Int?
+    @State private var errorMessage: String?
+
     var body: some View {
         Form {
+            ReminderSection()
             WhatsAppContactSection()
             Section("Library") {
                 NavigationLink("Ingredients", value: AppRoute.ingredientLibrary)
+                Button("Add Example Meals") { addSampleMeals() }
+            }
+            Section("About") {
+                LabeledContent("Version", value: versionText)
             }
         }
         .navigationTitle("Settings")
+        .alert(
+            "Added \(addedMealsCount ?? 0) example meals.",
+            isPresented: Binding(get: { addedMealsCount != nil }, set: { if !$0 { addedMealsCount = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        }
+        .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    private var versionText: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return "\(version) (\(build))"
+    }
+
+    private func addSampleMeals() {
+        do {
+            addedMealsCount = try MealStore(context: modelContext).addSampleMeals()
+        } catch {
+            logger.error("Failed to add sample meals: \(error, privacy: .public)")
+            errorMessage = "Something went wrong. Please try again."
+        }
     }
 }
 

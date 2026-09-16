@@ -10,6 +10,10 @@ struct RootTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var mealsPath = NavigationPath()
 
+    @AppStorage("reminder.enabled") private var reminderEnabled = false
+    @AppStorage("reminder.weekday") private var reminderWeekday = 1
+    @AppStorage("reminder.minutes") private var reminderMinutes = 1080
+
     var body: some View {
         @Bindable var appState = appState
 
@@ -44,19 +48,47 @@ struct RootTabView: View {
         // lazily, so the badge would stay 0 until the user opens that tab at
         // least once. A `.background` on the `TabView` itself is always built.
         .background(ShoppingBadgeReporter(weekID: appState.selectedWeekID).id(appState.selectedWeekID))
-        .task { archiveEndedWeeks() }
+        .task { onBecomeActive() }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active { archiveEndedWeeks() }
+            if newPhase == .active { onBecomeActive() }
         }
     }
 
-    /// §8.1: called at launch and whenever `scenePhase` becomes `.active`, so
-    /// an app left open past Sunday midnight archives before the next change.
+    /// §9.2: at launch and whenever `scenePhase` becomes `.active`, archive
+    /// ended weeks (so an app left open past Sunday midnight archives before
+    /// the next change), then re-sync the reminder (§11.3 "App becomes
+    /// active").
+    private func onBecomeActive() {
+        archiveEndedWeeks()
+        Task { await resyncReminder() }
+    }
+
     private func archiveEndedWeeks() {
         do {
             try ArchiveService(context: modelContext).archiveEndedWeeks()
         } catch {
             logger.error("Failed to archive ended weeks: \(error, privacy: .public)")
+        }
+    }
+
+    /// If the reminder is enabled and still authorised, reschedule it (in
+    /// case the system dropped the pending request). If permission has been
+    /// revoked, leave the stored toggle alone — `ReminderSection`'s footer
+    /// shows the warning when the user looks at Settings.
+    private func resyncReminder() async {
+        guard reminderEnabled else { return }
+        let scheduler = NotificationScheduler()
+        switch await scheduler.authorizationStatus() {
+        case .authorized, .provisional, .ephemeral:
+            do {
+                try await scheduler.scheduleWeeklyReminder(
+                    weekday: reminderWeekday, hour: reminderMinutes / 60, minute: reminderMinutes % 60
+                )
+            } catch {
+                logger.error("Failed to resync reminder: \(error, privacy: .public)")
+            }
+        default:
+            break
         }
     }
 }
