@@ -134,6 +134,26 @@ struct WeekPlanServiceShoppingTests {
         #expect(service.statuses(for: plan, sections: sections)[item.key] == .unchecked)
     }
 
+    @Test func uncheckAllResetsANeedsMoreItemToUnchecked() throws {
+        let chicken = try ingredientStore.create(name: "Chicken", defaultUnit: .g, category: .meatFish)
+        let meal = try makeMeal("Fajitas", ingredient: chicken, quantity: 200, unit: .g)
+        try service.assign(meal, at: PlanPosition(weekID: "2026-W38", dayIndex: 0, mealType: .dinner))
+        var plan = try #require(try service.plan(for: "2026-W38"))
+        var sections = ShoppingListBuilder.build(from: service.shoppingLines(for: plan))
+        let item = try #require(sections.first?.items.first)
+        try service.setChecked(true, item: item, weekID: "2026-W38")
+
+        let wraps = try makeMeal("Wrap", ingredient: chicken, quantity: 150, unit: .g)
+        try service.assign(wraps, at: PlanPosition(weekID: "2026-W38", dayIndex: 1, mealType: .lunch))
+        plan = try #require(try service.plan(for: "2026-W38"))
+        sections = ShoppingListBuilder.build(from: service.shoppingLines(for: plan))
+        #expect(service.statuses(for: plan, sections: sections)[item.key] == .needsMore([.g: 150]))
+
+        try service.uncheckAll(weekID: "2026-W38")
+
+        #expect(service.statuses(for: plan, sections: sections)[item.key] == .unchecked)
+    }
+
     @Test func settingCheckedOnAnEndedWeekThrows() throws {
         let onion = try ingredientStore.create(name: "Onion", defaultUnit: .item, category: .produce)
         let item = ShoppingListItem(key: onion.id.uuidString, displayName: onion.name, category: .produce, amounts: [.item: 1], usedIn: [], hasManualEntry: false)

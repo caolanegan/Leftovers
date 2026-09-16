@@ -104,11 +104,50 @@ struct ShoppingItemRow: View {
         return amounts.isEmpty ? item.displayName : "\(item.displayName), \(amounts)"
     }
 
+    /// §10.10: spoken in full ("need 150 grams more"), unlike the visible
+    /// "Need 150 g more" caption, which keeps `QuantityFormatter`'s
+    /// abbreviations — shared as-is with the exporter, so it isn't touched.
     private var accessibilityValue: String {
         switch status {
         case .unchecked: "not ticked"
         case .checked: "ticked"
-        case .needsMore(let extras): "need \(QuantityFormatter.format(amounts: extras)) more"
+        case .needsMore(let extras): "need \(Self.spokenAmounts(extras)) more"
+        }
+    }
+
+    private static func spokenAmounts(_ amounts: [IngredientUnit: Double]) -> String {
+        IngredientUnit.allCases
+            .compactMap { unit in amounts[unit].map { spokenAmount($0, unit: unit) } }
+            .joined(separator: " + ")
+    }
+
+    private static func spokenAmount(_ amount: Double, unit: IngredientUnit) -> String {
+        var amount = amount
+        var unit = unit
+        if unit == .g, amount >= 1000 {
+            unit = .kg
+            amount /= 1000
+        } else if unit == .ml, amount >= 1000 {
+            unit = .l
+            amount /= 1000
+        }
+
+        let numberText = QuantityFormatter.number(amount)
+        guard unit != .item else { return numberText }
+        let isPlural = abs(amount - 1) > 0.0001
+        return "\(numberText) \(spokenUnitLabel(unit, isPlural: isPlural))"
+    }
+
+    private static func spokenUnitLabel(_ unit: IngredientUnit, isPlural: Bool) -> String {
+        switch unit {
+        case .item: ""
+        case .g: isPlural ? "grams" : "gram"
+        case .kg: isPlural ? "kilograms" : "kilogram"
+        case .ml: isPlural ? "millilitres" : "millilitre"
+        case .l: isPlural ? "litres" : "litre"
+        case .tsp: isPlural ? "teaspoons" : "teaspoon"
+        case .tbsp: isPlural ? "tablespoons" : "tablespoon"
+        default: unit.label(for: isPlural ? 2 : 1)
         }
     }
 }

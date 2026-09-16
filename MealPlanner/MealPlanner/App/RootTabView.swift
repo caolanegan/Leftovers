@@ -31,7 +31,6 @@ struct RootTabView: View {
                     ShoppingListView()
                         .appRouteDestinations()
                 }
-                .background(ShoppingBadgeReporter(weekID: appState.selectedWeekID).id(appState.selectedWeekID))
             }
             .badge(appState.shoppingBadgeCount)
             Tab("Settings", systemImage: "gearshape", value: .settings) {
@@ -41,6 +40,10 @@ struct RootTabView: View {
                 }
             }
         }
+        // Not inside the Shopping tab's own content: `Tab` builds its content
+        // lazily, so the badge would stay 0 until the user opens that tab at
+        // least once. A `.background` on the `TabView` itself is always built.
+        .background(ShoppingBadgeReporter(weekID: appState.selectedWeekID).id(appState.selectedWeekID))
         .task { archiveEndedWeeks() }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active { archiveEndedWeeks() }

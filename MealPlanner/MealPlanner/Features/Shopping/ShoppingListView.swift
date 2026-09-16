@@ -58,15 +58,24 @@ private struct ShoppingListContentView: View {
         return ArchiveService(context: modelContext).archivedShoppingList(plan)
     }
 
-    private var listData: ShoppingListData {
+    /// Reads the archived JSON at most once per call (the caller passes in
+    /// `archivedList` when it already has it, so a single body render or
+    /// share action never decodes it twice).
+    private func shoppingListData(archived: ArchivedShoppingList?) -> ShoppingListData {
         if isReadOnly {
-            guard let archivedList else { return ShoppingListData() }
-            return ShoppingListData(sections: archivedList.sections, statuses: archivedList.statuses)
+            guard let archived else { return ShoppingListData() }
+            return ShoppingListData(sections: archived.sections, statuses: archived.statuses)
         }
         guard let plan else { return ShoppingListData() }
         let service = WeekPlanService(context: modelContext)
         let sections = ShoppingListBuilder.build(from: service.shoppingLines(for: plan))
         return ShoppingListData(sections: sections, statuses: service.statuses(for: plan, sections: sections))
+    }
+
+    /// For call sites outside `body` (the share actions), where there's no
+    /// already-decoded `archivedList` to reuse.
+    private func currentListData() -> ShoppingListData {
+        shoppingListData(archived: isReadOnly ? archivedList : nil)
     }
 
     private var hasNoSlotsOrManualItems: Bool {
@@ -79,16 +88,18 @@ private struct ShoppingListContentView: View {
         ExportOptions(includeChecked: includeChecked, includeMealPlan: includeMealPlan)
     }
 
-    private var currentSignature: String { ShoppingListBuilder.signature(of: listData.sections) }
-
-    private var hasExportableItems: Bool {
-        ShoppingListExporter.hasExportableItems(sections: listData.sections, statuses: listData.statuses, options: exportOptions)
+    private func currentSignature(_ data: ShoppingListData) -> String {
+        ShoppingListBuilder.signature(of: data.sections)
     }
 
-    private var exportText: String {
+    private func hasExportableItems(_ data: ShoppingListData) -> Bool {
+        ShoppingListExporter.hasExportableItems(sections: data.sections, statuses: data.statuses, options: exportOptions)
+    }
+
+    private func exportText(_ data: ShoppingListData) -> String {
         let weekCommencing = WeekMath.weekCommencingText(for: weekID, calendar: WeekMath.appCalendar, locale: .current)
         return ShoppingListExporter.text(
-            weekCommencing: weekCommencing, sections: listData.sections, statuses: listData.statuses,
+            weekCommencing: weekCommencing, sections: data.sections, statuses: data.statuses,
             mealPlan: exportMealPlan, options: exportOptions
         )
     }
@@ -128,16 +139,20 @@ private struct ShoppingListContentView: View {
         return (name, digits)
     }
 
-    private var showsSharedChangedBanner: Bool {
+    private func showsSharedChangedBanner(_ data: ShoppingListData) -> Bool {
         guard !isReadOnly, let signature = plan?.lastSharedSignature else { return false }
-        return signature != currentSignature
+        return signature != currentSignature(data)
     }
 
     var body: some View {
-        let data = listData
+        let archived = isReadOnly ? archivedList : nil
+        let data = shoppingListData(archived: archived)
         let allItems = data.sections.flatMap(\.items)
         let tickedCount = allItems.filter { isChecked(data.statuses[$0.key]) }.count
-        let missingArchivedList = isReadOnly && archivedList == nil
+        let hasTickedItems = allItems.contains { isCheckedOrNeedsMore(data.statuses[$0.key]) }
+        let missingArchivedList = isReadOnly && archived == nil
+        let showsBanner = showsSharedChangedBanner(data)
+        let exportable = hasExportableItems(data)
 
         List {
             if isReadOnly {
@@ -146,7 +161,7 @@ private struct ShoppingListContentView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            if showsSharedChangedBanner {
+            if showsBanner {
                 Section {
                     SharedChangedBanner(onShareAgain: shareList)
                 }
@@ -216,15 +231,15 @@ private struct ShoppingListContentView: View {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button("Share List…", action: shareList)
-                        .disabled(!hasExportableItems)
+                        .disabled(!exportable)
                     Button("Send via WhatsApp") { sendWhatsApp(phoneDigits: nil) }
-                        .disabled(!hasExportableItems)
+                        .disabled(!exportable)
                     if let contact = whatsAppContact {
                         Button("Send to \(contact.name) on WhatsApp") { sendWhatsApp(phoneDigits: contact.digits) }
-                            .disabled(!hasExportableItems)
+                            .disabled(!exportable)
                     }
                     Button("Save as Text File…", action: saveTextFile)
-                        .disabled(!hasExportableItems)
+                        .disabled(!exportable)
                     Divider()
                     Toggle("Include Ticked Items", isOn: $includeChecked)
                     Toggle("Include Meal Plan", isOn: $includeMealPlan)
@@ -237,7 +252,7 @@ private struct ShoppingListContentView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button("Untick All", role: .destructive) { pendingUntickAll = true }
-                            .disabled(tickedCount == 0)
+                            .disabled(!hasTickedItems)
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -282,6 +297,16 @@ private struct ShoppingListContentView: View {
         return false
     }
 
+    /// "Untick All" (§10.10 ⋯ menu) must stay enabled for a list that's all
+    /// `.needsMore` — those items are still stored as ticked, just short —
+    /// not just for `.checked` ones (which is all the progress bar counts).
+    private func isCheckedOrNeedsMore(_ status: CheckStatus?) -> Bool {
+        switch status {
+        case .checked, .needsMore: true
+        case .unchecked, nil: false
+        }
+    }
+
     private var navigatorTitle: String {
         let title = WeekMath.title(for: weekID, now: .now, calendar: WeekMath.appCalendar, locale: .current)
         let dateRange = WeekMath.dateRangeText(for: weekID, calendar: WeekMath.appCalendar, locale: .current)
@@ -297,24 +322,27 @@ private struct ShoppingListContentView: View {
     // MARK: - Share (§12.2)
 
     private func shareList() {
-        ShareService.present(items: [exportText]) { completed in
-            if completed { markSharedIfNeeded() }
+        let data = currentListData()
+        ShareService.present(items: [exportText(data)]) { completed in
+            if completed { markShared(signature: currentSignature(data)) }
         }
     }
 
     private func sendWhatsApp(phoneDigits: String?) {
-        guard let url = WhatsAppLink.url(text: exportText, phoneDigits: phoneDigits) else { return }
+        let data = currentListData()
+        guard let url = WhatsAppLink.url(text: exportText(data), phoneDigits: phoneDigits) else { return }
         openURL(url) { accepted in
-            if accepted { markSharedIfNeeded() }
+            if accepted { markShared(signature: currentSignature(data)) }
         }
     }
 
     private func saveTextFile() {
+        let data = currentListData()
         do {
             let fileName = "Shopping list \(weekID).txt"
-            let fileURL = try ShareService.makeTextFile(text: exportText, fileName: fileName)
+            let fileURL = try ShareService.makeTextFile(text: exportText(data), fileName: fileName)
             ShareService.present(items: [fileURL]) { completed in
-                if completed { markSharedIfNeeded() }
+                if completed { markShared(signature: currentSignature(data)) }
             }
         } catch {
             logger.error("Failed to create text file: \(error, privacy: .public)")
@@ -324,9 +352,9 @@ private struct ShoppingListContentView: View {
 
     /// No-ops on an archived week — `markShared` itself skips the write
     /// (§10.10, §12.2's "skipped for archived weeks").
-    private func markSharedIfNeeded() {
+    private func markShared(signature: String) {
         do {
-            try WeekPlanService(context: modelContext).markShared(weekID: weekID, signature: currentSignature)
+            try WeekPlanService(context: modelContext).markShared(weekID: weekID, signature: signature)
         } catch {
             logger.error("Failed to record share: \(error, privacy: .public)")
         }
