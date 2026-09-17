@@ -158,7 +158,7 @@ struct MealPickerSheet: View {
             }
         } catch {
             logger.error("Failed to check leftovers: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -188,7 +188,7 @@ struct MealPickerSheet: View {
             }
         } catch {
             logger.error("Failed to check dependents: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -204,7 +204,7 @@ struct MealPickerSheet: View {
             dismiss()
         } catch {
             logger.error("Failed to assign meal: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -229,7 +229,7 @@ struct MealPickerSheet: View {
             }
         } catch {
             logger.error("Failed to shuffle: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -240,7 +240,7 @@ struct MealPickerSheet: View {
             dismiss()
         } catch {
             logger.error("Failed to shuffle: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -259,12 +259,12 @@ struct MealPickerSheet: View {
                     dismiss()
                 } catch {
                     logger.error("Failed to remove from plan: \(error, privacy: .public)")
-                    errorMessage = "Something went wrong. Please try again."
+                    errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
                 }
             }
         } catch {
             logger.error("Failed to remove from plan: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 }

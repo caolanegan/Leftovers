@@ -92,6 +92,7 @@ struct IngredientDetailView: View {
         } message: {
             Text(mergeDialogMessage)
         }
+        .sensoryFeedback(.warning, trigger: mergeTarget != nil)
         .confirmationDialog(
             "Delete Ingredient?",
             isPresented: $showingDeleteConfirmation,
@@ -102,6 +103,7 @@ struct IngredientDetailView: View {
         } message: {
             Text("Delete \"\(ingredient.name)\"? This can't be undone.")
         }
+        .sensoryFeedback(.warning, trigger: showingDeleteConfirmation)
         .alert(
             duplicateAlertTitle,
             isPresented: Binding(get: { duplicateName != nil }, set: { if !$0 { duplicateName = nil } })
@@ -134,7 +136,7 @@ struct IngredientDetailView: View {
             duplicateName = existingName
         } catch {
             logger.error("Failed to update ingredient: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -147,7 +149,7 @@ struct IngredientDetailView: View {
             dismiss()
         } catch {
             logger.error("Failed to merge into existing ingredient: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
         self.duplicateName = nil
     }
@@ -159,7 +161,7 @@ struct IngredientDetailView: View {
             dismiss()
         } catch {
             logger.error("Failed to merge ingredient: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
         self.mergeTarget = nil
     }
@@ -170,7 +172,7 @@ struct IngredientDetailView: View {
             dismiss()
         } catch {
             logger.error("Failed to delete ingredient: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 }

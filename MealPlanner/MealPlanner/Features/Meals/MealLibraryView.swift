@@ -128,6 +128,7 @@ struct MealLibraryView: View {
         } message: {
             Text(pendingDeleteMessage)
         }
+        .sensoryFeedback(.warning, trigger: pendingDelete != nil)
         .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -166,7 +167,7 @@ struct MealLibraryView: View {
             try MealStore(context: modelContext).toggleFavorite(meal)
         } catch {
             logger.error("Failed to toggle favourite: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -175,7 +176,7 @@ struct MealLibraryView: View {
             try MealStore(context: modelContext).addSampleMeals()
         } catch {
             logger.error("Failed to add sample meals: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -185,7 +186,7 @@ struct MealLibraryView: View {
             try MealStore(context: modelContext).delete(pendingDelete)
         } catch {
             logger.error("Failed to delete meal: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
         self.pendingDelete = nil
     }

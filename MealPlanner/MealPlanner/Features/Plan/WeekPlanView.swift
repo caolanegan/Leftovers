@@ -157,6 +157,7 @@ private struct WeekPlanContentView: View {
         } message: {
             Text(clearWeekMessage)
         }
+        .sensoryFeedback(.warning, trigger: pendingClearWeek)
         .confirmationDialog(
             "Copy Meals",
             isPresented: Binding(get: { pendingCopy != nil }, set: { if !$0 { pendingCopy = nil } }),
@@ -169,6 +170,7 @@ private struct WeekPlanContentView: View {
         } message: { _ in
             Text("Fill Empty Meals keeps what's already planned. Replace This Week removes it first.")
         }
+        .sensoryFeedback(.warning, trigger: pendingCopy != nil)
         .confirmationDialog(
             pendingRandomize?.title ?? "",
             isPresented: Binding(get: { pendingRandomize != nil }, set: { if !$0 { pendingRandomize = nil } }),
@@ -181,6 +183,7 @@ private struct WeekPlanContentView: View {
         } message: { request in
             Text(randomizeMessage(hasDependents: request.hasDependents))
         }
+        .sensoryFeedback(.warning, trigger: pendingRandomize != nil)
         .dependentLeftoversDialog($pendingDependentRemoval)
         .task(id: weekID) {
             guard isReadOnly, plan?.isArchived != true else { return }
@@ -229,12 +232,12 @@ private struct WeekPlanContentView: View {
                     try WeekPlanService(context: modelContext).clearSlot(at: position, dependents: action)
                 } catch {
                     logger.error("Failed to remove slot: \(error, privacy: .public)")
-                    errorMessage = "Something went wrong. Please try again."
+                    errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
                 }
             }
         } catch {
             logger.error("Failed to remove slot: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -243,7 +246,7 @@ private struct WeekPlanContentView: View {
             try WeekPlanService(context: modelContext).markAsLeftovers(at: position)
         } catch {
             logger.error("Failed to mark as leftovers: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -252,7 +255,7 @@ private struct WeekPlanContentView: View {
             try WeekPlanService(context: modelContext).markAsCooked(at: position)
         } catch {
             logger.error("Failed to mark as cooked: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -261,7 +264,7 @@ private struct WeekPlanContentView: View {
             try WeekPlanService(context: modelContext).addLeftovers(from: source, to: target)
         } catch {
             logger.error("Failed to add leftovers: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -331,7 +334,7 @@ private struct WeekPlanContentView: View {
             }
         } catch {
             logger.error("Failed to randomize: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -354,7 +357,7 @@ private struct WeekPlanContentView: View {
             }
         } catch {
             logger.error("Failed to shuffle: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -364,7 +367,7 @@ private struct WeekPlanContentView: View {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         } catch {
             logger.error("Failed to shuffle: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -382,7 +385,7 @@ private struct WeekPlanContentView: View {
             try WeekPlanService(context: modelContext).clearWeek(weekID)
         } catch {
             logger.error("Failed to clear week: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -422,7 +425,7 @@ private struct WeekPlanContentView: View {
             }
         } catch {
             logger.error("Failed to copy week: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 }

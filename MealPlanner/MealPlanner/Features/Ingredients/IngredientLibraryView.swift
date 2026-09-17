@@ -103,6 +103,7 @@ struct IngredientLibraryView: View {
         } message: {
             Text(mergeDialogMessage)
         }
+        .sensoryFeedback(.warning, trigger: mergeTarget != nil)
         .confirmationDialog(
             "Delete Ingredient?",
             isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
@@ -113,6 +114,7 @@ struct IngredientLibraryView: View {
         } message: {
             Text(pendingDeleteMessage)
         }
+        .sensoryFeedback(.warning, trigger: pendingDelete != nil)
         .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -141,7 +143,7 @@ struct IngredientLibraryView: View {
             try IngredientStore(context: modelContext).merge(mergeSource, into: mergeTarget)
         } catch {
             logger.error("Failed to merge ingredient: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
         self.mergeSource = nil
         self.mergeTarget = nil
@@ -153,7 +155,7 @@ struct IngredientLibraryView: View {
             try IngredientStore(context: modelContext).delete(pendingDelete)
         } catch {
             logger.error("Failed to delete ingredient: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
         self.pendingDelete = nil
     }

@@ -69,6 +69,7 @@ struct MealEditorView: View {
                 Button("Discard Changes", role: .destructive) { dismiss() }
                 Button("Keep Editing", role: .cancel) {}
             }
+            .sensoryFeedback(.warning, trigger: showingDiscardConfirmation)
             .sheet(isPresented: $showingAddIngredient) {
                 IngredientPickerSheet(
                     recipeCompletion: .init(
@@ -241,7 +242,7 @@ struct MealEditorView: View {
             dismiss()
         } catch {
             logger.error("Failed to save meal: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 }

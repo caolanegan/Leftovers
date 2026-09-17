@@ -109,10 +109,8 @@ enum LeftoverRules {
     }
 
     private static func joined(_ items: [String]) -> String {
-        switch items.count {
-        case 0: ""
-        case 1: items[0]
-        default: "\(items.dropLast().joined(separator: ", ")) and \(items.last!)"
-        }
+        guard let last = items.last else { return "" }
+        guard items.count > 1 else { return last }
+        return "\(items.dropLast().joined(separator: ", ")) and \(last)"
     }
 }

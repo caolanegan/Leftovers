@@ -73,5 +73,6 @@ extension View {
                 Text(value.message)
             }
         }
+        .sensoryFeedback(.warning, trigger: prompt.wrappedValue != nil)
     }
 }

@@ -142,7 +142,7 @@ struct AddToPlanSheet: View {
             }
         } catch {
             logger.error("Failed to check leftovers: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -172,7 +172,7 @@ struct AddToPlanSheet: View {
             }
         } catch {
             logger.error("Failed to check dependents: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -189,7 +189,7 @@ struct AddToPlanSheet: View {
             dismiss()
         } catch {
             logger.error("Failed to add to plan: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 }

@@ -134,6 +134,7 @@ struct MealDetailView: View {
         } message: {
             Text(deleteMessage)
         }
+        .sensoryFeedback(.warning, trigger: showingDeleteConfirmation)
         .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -168,7 +169,7 @@ struct MealDetailView: View {
             try MealStore(context: modelContext).toggleFavorite(meal)
         } catch {
             logger.error("Failed to toggle favourite: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -181,7 +182,7 @@ struct MealDetailView: View {
             }
         } catch {
             logger.error("Failed to duplicate meal: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -191,7 +192,7 @@ struct MealDetailView: View {
             dismiss()
         } catch {
             logger.error("Failed to delete meal: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 }

@@ -54,7 +54,7 @@ struct SettingsView: View {
             addedMealsCount = try MealStore(context: modelContext).addSampleMeals()
         } catch {
             logger.error("Failed to add sample meals: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 }

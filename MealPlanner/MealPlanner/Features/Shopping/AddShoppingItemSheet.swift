@@ -98,7 +98,7 @@ struct AddShoppingItemSheet: View {
             dismiss()
         } catch {
             logger.error("Failed to save hand-added item: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -108,7 +108,7 @@ struct AddShoppingItemSheet: View {
             dismiss()
         } catch {
             logger.error("Failed to remove hand-added item: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 }

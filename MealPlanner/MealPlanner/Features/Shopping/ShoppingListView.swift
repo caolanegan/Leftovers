@@ -277,6 +277,7 @@ private struct ShoppingListContentView: View {
         } message: {
             Text("This unticks every item on this week's list.")
         }
+        .sensoryFeedback(.warning, trigger: pendingUntickAll)
         .task(id: weekID) {
             guard isReadOnly, plan?.isArchived != true else { return }
             do {
@@ -346,7 +347,7 @@ private struct ShoppingListContentView: View {
             }
         } catch {
             logger.error("Failed to create text file: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -365,7 +366,7 @@ private struct ShoppingListContentView: View {
             try WeekPlanService(context: modelContext).setChecked(checked, item: item, weekID: weekID)
         } catch {
             logger.error("Failed to update tick state: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -380,7 +381,7 @@ private struct ShoppingListContentView: View {
             try WeekPlanService(context: modelContext).removeManualItem(ingredientID: id, weekID: weekID)
         } catch {
             logger.error("Failed to remove hand-added item: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
@@ -389,7 +390,7 @@ private struct ShoppingListContentView: View {
             try WeekPlanService(context: modelContext).uncheckAll(weekID: weekID)
         } catch {
             logger.error("Failed to untick all: \(error, privacy: .public)")
-            errorMessage = "Something went wrong. Please try again."
+            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 
