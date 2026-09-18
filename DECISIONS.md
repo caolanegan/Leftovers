@@ -2,6 +2,12 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-09-18 — M12.1: Appearance setting
+
+- **`AppearancePreference` stores its raw value as a plain `String` (`@AppStorage("appearance")`), with a pure `static func resolved(fromRawValue:)` doing the "unknown value → System" fallback**, rather than making `AppearancePreference` itself `@AppStorage`'s stored type. SwiftUI's `@AppStorage` already falls back to the declared default when a `RawRepresentable`'s `init?(rawValue:)` fails, so storing the enum directly would satisfy the behaviour but leave nothing to unit-test — M12.1's own acceptance criteria ask for a test that "an unknown raw value falls back to System." `resolved(fromRawValue:)` is the one place that decision is made, shared by `AppearanceSettingsView`'s picker, `SettingsView`'s trailing value, and `MealPlannerApp`'s `.preferredColorScheme`, and it's directly testable in `AppearancePreferenceTests` without touching `UserDefaults`.
+- **`SettingsView`'s new "Appearance" row is added to the existing `Form` as-is (`ReminderSection()`, `WhatsAppContactSection()`, a new plain `Section` for Appearance, then Library/About)**, not restructured into the "root shows only rows, each opens its own page" layout that §10.12's v1.6 table describes. That whole-Settings restructure (`ReminderSettingsView`, `SharingSettingsView`, moving Appearance's picker off the root) is explicitly M12.2's build list ("Settings root list and its pages… `AppearanceSettingsView` (moving M12.1's picker onto its own page)"), so M12.1 only adds the one new page and its one new row, reached via `AppRoute.appearanceSettings`, and leaves Reminder/WhatsApp/Library/About exactly as M11 left them.
+- **`AppRoute.appearanceSettings` has no associated value**, unlike every other case — `AppearanceSettingsView` takes no parameters, so hashing just combines a distinct tag (`4`) with nothing else.
+
 ## 2026-09-18 — M12 fixes: shopping row at large text sizes, haptic triggers
 
 - **`ShoppingItemRow` switches to a vertical layout at accessibility text sizes**, reading `@Environment(\.dynamicTypeSize)` and checking `isAccessibilitySize`: icon + name on one line, the amount on its own line below, instead of squeezing both into one `HStack` where the name used to hyphenate across several lines beside the amount. The tick icon, strikethrough, "Need X more" caption, usage caption and accessibility label/value are untouched — only the name/amount arrangement changes, factored into two small subviews (`nameLabel`, `amountText`) shared by both layouts.

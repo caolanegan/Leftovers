@@ -7,6 +7,7 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlan
 /// §10.12.
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
+    @AppStorage("appearance") private var appearanceRawValue = AppearancePreference.system.rawValue
     @State private var addedMealsCount: Int?
     @State private var errorMessage: String?
 
@@ -14,6 +15,14 @@ struct SettingsView: View {
         Form {
             ReminderSection()
             WhatsAppContactSection()
+            Section {
+                NavigationLink(value: AppRoute.appearanceSettings) {
+                    LabeledContent(
+                        "Appearance",
+                        value: AppearancePreference.resolved(fromRawValue: appearanceRawValue).displayName
+                    )
+                }
+            }
             Section("Library") {
                 NavigationLink("Ingredients", value: AppRoute.ingredientLibrary)
                 Button("Add Example Meals") { addSampleMeals() }

@@ -4,6 +4,7 @@ import SwiftData
 @main
 struct MealPlannerApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @AppStorage("appearance") private var appearanceRawValue = AppearancePreference.system.rawValue
     private let modelContainer: ModelContainer
 
     init() {
@@ -18,6 +19,7 @@ struct MealPlannerApp: App {
         WindowGroup {
             RootTabView()
                 .environment(appDelegate.appState)
+                .preferredColorScheme(AppearancePreference.resolved(fromRawValue: appearanceRawValue).colorScheme)
         }
         .modelContainer(modelContainer)
     }
