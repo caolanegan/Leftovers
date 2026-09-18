@@ -1,6 +1,6 @@
 # MealPlanner — Product & Technical Specification
 
-> **Version:** 1.5 (MVP + post-MVP §18) · **Date:** 2026-09-15 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
+> **Version:** 1.6 (MVP + post-MVP §18) · **Date:** 2026-09-15 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
 >
 > **To the implementing model:** This document is the source of truth. Build the app **one milestone at a time** (§16). Each milestone lists the spec sections it needs and the acceptance criteria that must pass before it counts as done. If something here is ambiguous, pick the simplest option that fits the spec and write it down in `DECISIONS.md`. Do **not** add features that are not in this document.
 
@@ -8,6 +8,7 @@
 
 | Version | Changes |
 |---------|---------|
+| 1.6 | **Usability fixes:** the keyboard can always be dismissed (§13.4). Settings becomes a list of pages (§10.12). Sharing goes through the iOS share sheet first, with an optional quick-send contact (§10.10, §12.2). New milestone **M12.2**. |
 | 1.5 | **Appearance setting**: System / Light / Dark picker in Settings (§5.2, §10.12, §15.2). New milestone **M12.1**. |
 | 1.4 | The Plan screen no longer scrolls to today when it opens; it always starts at Monday (§10.1). |
 | 1.3 | **"Good as Leftovers"** toggle per meal: the leftovers prompt and leftover actions only appear for meals that keep well (§3, §6.4, §7.7, §8.2, §10.1, §10.3, §10.6, §14, Appendix A). New milestone **M7.1**. |
@@ -307,10 +308,14 @@ Features/
     SharedChangedBanner.swift
     AddShoppingItemSheet.swift
   Settings/
-    SettingsView.swift
-    WhatsAppContactSection.swift
+    SettingsView.swift                 # root list of pages (§10.12)
+    ReminderSettingsView.swift
+    SharingSettingsView.swift          # replaces WhatsAppContactSection (v1.6)
+    AppearanceSettingsView.swift
+    AboutView.swift
 Shared/
   PreviewContainer.swift
+  KeyboardDismissal.swift            # shared keyboard modifier (§13.4)
   DependentLeftoversDialog.swift     # reusable confirmationDialog modifier (§10.3)
   AppearancePreference.swift         # System / Light / Dark (§10.12)
 Resources/
@@ -1459,7 +1464,11 @@ Ingredients created here stay in the library even if the meal is cancelled. That
 **Toolbar**
 
 - `+` → `AddShoppingItemSheet`.
-- `square.and.arrow.up` menu (§12): Share List…, Send via WhatsApp, Send to <Name> on WhatsApp (if a contact is set), Save as Text File…, a divider, then the toggles "Include Ticked Items" and "Include Meal Plan" (`@AppStorage("export.includeChecked")` false, `@AppStorage("export.includeMealPlan")` true). Share actions are disabled when `hasExportableItems` is false.
+- `square.and.arrow.up` share button (§12, v1.6):
+  - **No valid quick-send contact** (no name, or the phone isn't `.valid`) → a plain button that opens the iOS share sheet straight away.
+  - **Valid quick-send contact** → a menu with "Send to <Name>" (WhatsApp, straight to that chat) and "Share…" (the iOS share sheet).
+  - The export options ("Include Ticked Items", "Include Meal Plan") live in Settings → Sharing, not on this button.
+  - Disabled when `hasExportableItems` is false.
 - ⋯ → "Untick All" (confirmation).
 
 **Empty states:** no slots and no hand-added items → "No meals planned" + **Go to Plan** + **Add Item**. Slots but no lines → "Nothing to buy".
@@ -1473,20 +1482,32 @@ Ingredients created here stay in the library even if the meal is cancelled. That
 
 ### 10.12 `SettingsView`
 
-1. **Shopping Reminder** (§11): toggle, Day picker (Monday…Sunday → Calendar weekday 2…7, 1), Time `DatePicker`, and a footer showing the next reminder or the permission warning.
-2. **WhatsApp (`WhatsAppContactSection`):**
-   - `TextField("Name")` (`@AppStorage("whatsapp.contactName")`) and `TextField("Mobile number")` with `.phonePad` (`@AppStorage("whatsapp.contactPhone")`).
-   - Footer: "Include the country code, e.g. +44 7700 900123. Your list will open straight in this person's WhatsApp chat. Saved only on this iPhone."
-   - When `normalizePhone` is `.invalid`, show a red caption "Add the country code (e.g. +44) and check the number."
-   - A **"Send Test Message"** button opens `WhatsAppLink.url(text: "Test from MealPlanner 👋", phoneDigits:)`.
-3. **Library:** Ingredients (push `IngredientLibraryView`), "Add Example Meals" → alert "Added N example meals."
-4. **Appearance** (added in v1.5):
-   - A segmented `Picker("Appearance")` with **System**, **Light** and **Dark**, stored in `@AppStorage("appearance")` as `"system"` / `"light"` / `"dark"`. Default `"system"`; an unknown stored value is treated as System.
+**Structure (v1.6).** The Settings tab root is a short list of rows. Each row opens its own page; nothing is configured on the root itself. Navigation is value-based through `AppRoute`, like every other screen. Each row is a `Label` (SF Symbol + title) with the current value in secondary text on the trailing side.
+
+| Row | Icon | Trailing value | Opens |
+|-----|------|----------------|-------|
+| Shopping Reminder | `bell` | "Off", or e.g. "Sun 18:00" | `ReminderSettingsView` |
+| Sharing | `square.and.arrow.up` | the quick-send name, or "Not set" | `SharingSettingsView` |
+| Appearance | `circle.lefthalf.filled` | "System" / "Light" / "Dark" | `AppearanceSettingsView` |
+| *Library section:* Ingredients | `carrot` | — | `IngredientLibraryView` |
+| *Library section:* Add Example Meals | `sparkles` | — | an action, not a page: alert "Added N example meals." (or the "already in your library" copy when N = 0) |
+| *About section:* About | `info.circle` | — | `AboutView` |
+
+Future settings (including §18's recipe import) are added as their own page in the same way, never inline on the root.
+
+**Pages**
+
+1. **`ReminderSettingsView`** — title "Shopping Reminder" (§11): toggle, Day picker (Monday…Sunday → Calendar weekday 2…7, 1), Time `DatePicker`, and a footer showing the next reminder or the permission warning. Same behaviour and storage as before; only its location changes.
+2. **`SharingSettingsView`** — title "Sharing":
+   - Section **"Quick Send"**: `TextField("Name")` (`@AppStorage("whatsapp.contactName")`) and `TextField("Mobile number")` with `.phonePad` (`@AppStorage("whatsapp.contactPhone")`). When `normalizePhone` is `.invalid`, a red caption "Add the country code (e.g. +44) and check the number." A **"Send Test Message"** button opens `WhatsAppLink.url(text: "Test from MealPlanner 👋", phoneDigits:)`. Footer: "Save someone you often send your list to. The share button on your shopping list will offer to send it straight to their WhatsApp chat. Include the country code, e.g. +44 7700 900123. Saved only on this iPhone."
+   - Section **"What to Include"**: toggles "Include Ticked Items" (`@AppStorage("export.includeChecked")`, false) and "Include Meal Plan" (`@AppStorage("export.includeMealPlan")`, true).
+3. **`AppearanceSettingsView`** (added in v1.5, moved to its own page in v1.6):
+   - An inline `Picker` (a checkmarked list) with **System**, **Light** and **Dark**, stored in `@AppStorage("appearance")` as `"system"` / `"light"` / `"dark"`. Default `"system"`; an unknown stored value is treated as System.
    - Footer: "System matches your iPhone's setting."
    - `enum AppearancePreference: String, CaseIterable { case system, light, dark }` in `Shared/`, with `var colorScheme: ColorScheme?` (`nil` for System).
    - Applied **once**, at the root: `RootTabView().preferredColorScheme(preference.colorScheme)` in `MealPlannerApp`. It must cover every tab, sheet, alert, confirmation dialog and the share sheet, and change straight away without a relaunch.
    - Not a `@Model` change, so no schema version is needed.
-5. **About:** version and build.
+4. **`AboutView`** — version and build.
 
 ---
 
@@ -1542,10 +1563,10 @@ Footer: "Next reminder: Sunday 20 Sep at 18:00" (`Calendar.nextDate(after:matchi
 
 | Action | Implementation | On success |
 |--------|----------------|------------|
-| **Share List…** | `ShareService.present(items: [text])`: share sheet, with WhatsApp, Messages, Notes etc. available | `markShared` if `completed` |
-| **Send via WhatsApp** | `openURL(WhatsAppLink.url(text:, phoneDigits: nil))` | `markShared` if `accepted` |
-| **Send to <Name> on WhatsApp** (only if the saved phone is `.valid`) | `openURL(WhatsAppLink.url(text:, phoneDigits: digits))` | `markShared` if `accepted` |
-| **Save as Text File…** | `ShareService.makeTextFile` → `present(items: [fileURL])` (named `"Shopping list <weekID>.txt"`). Can be saved to Files or sent as a WhatsApp document. | `markShared` if `completed` |
+| **Share…** (the share button itself when there's no quick-send contact) | `ShareService.present(items: [text])`: the iOS share sheet, with WhatsApp, Messages, Notes, Mail, Copy etc. | `markShared` if `completed` |
+| **Send to <Name>** (only with a quick-send name and a `.valid` phone) | `openURL(WhatsAppLink.url(text:, phoneDigits: digits))` | `markShared` if `accepted` |
+
+v1.6 removed "Send via WhatsApp" (the share sheet already offers WhatsApp) and "Save as Text File…". Delete `ShareService.makeTextFile` and anything only it used.
 
 `markShared` is skipped for archived weeks.
 
@@ -1583,6 +1604,17 @@ To find the top-most view controller: take the key window of the foreground-acti
 - Title Case for buttons and menus. Sentence case for text and alerts. British spelling.
 - Generic error alert: "Something went wrong. Please try again."
 - `AppError.weekIsArchived` → "This week has ended and can't be changed."
+
+### 13.4 Keyboard (added in v1.6)
+
+The keyboard must never get stuck on screen. On every screen with a text field:
+
+- **Tapping outside** a text field dismisses the keyboard. This must not swallow taps meant for buttons, rows, toggles, pickers or other text fields.
+- **Scrolling** dismisses it: `.scrollDismissesKeyboard(.interactively)` on every `Form` and `List` that contains a text field.
+- **Return** dismisses it (or moves to the next field) wherever the keyboard has a Return key.
+- **Keyboards without a Return key** (`.phonePad`, `.decimalPad`, `.numberPad`) get a **Done** button in a keyboard toolbar (`ToolbarItemGroup(placement: .keyboard)`).
+
+Build this once as a shared modifier in `Shared/KeyboardDismissal.swift` and apply it everywhere text is typed: the meal editor, recipe line form, new-ingredient form, ingredient detail, Add Shopping Item, the ingredient picker's search, and Settings → Sharing. `.searchable` bars already dismiss themselves and don't need it.
 
 ---
 
@@ -1653,8 +1685,9 @@ Mark every suite `@MainActor`. Use `#expect` / `#require`, and `@Test(arguments:
 - [ ] Randomise Dinners → no dinner is one of last week's meals → Shuffle Tuesday dinner → only Tuesday changes.
 - [ ] Tick chicken → add another chicken meal → "Need X more" appears.
 - [ ] Add "Toilet roll 1 pack" by hand → it's under Household with "Added by you", and it's included in the export.
-- [ ] Send via WhatsApp to a real contact (ideally an Android phone) → the message is readable and bold headings show.
-- [ ] Save a WhatsApp contact → "Send to <Name>" opens that chat directly.
+- [ ] Share → WhatsApp in the share sheet → a real contact (ideally an Android phone) → the message is readable and bold headings show.
+- [ ] Save a quick-send contact in Settings → Sharing → the share button offers "Send to <Name>", which opens that chat directly.
+- [ ] On every screen with a text field, the keyboard goes away on tapping outside, on scrolling, and via Return or Done (including the phone number field).
 - [ ] Change the plan after sharing → the banner appears → share again → the banner goes away.
 - [ ] Set the device date forward a week (or use a test build flag) → last week is read-only; editing a meal doesn't change it.
 - [ ] Force-quit and relaunch → everything is still there.
@@ -1787,12 +1820,28 @@ Do this **after M7 (and its fixes) and before M8**.
 
 Do this **after M12 (and its fixes)**.
 
-**Read:** §10.12 (item 4), §13.1 (accent colours), §15.2 (the Appearance item).
-**Build:** `Shared/AppearancePreference.swift`, the Appearance section in `SettingsView`, and `.preferredColorScheme` at the root in `MealPlannerApp`.
+**Read:** §10.12 (the Structure table and page 3), §13.1 (accent colours), §15.2 (the Appearance item).
+**Build:** `Shared/AppearancePreference.swift`, `AppearanceSettingsView` as its own page reached from an "Appearance" row in `SettingsView` (M12.2 turns the rest of Settings into pages the same way), and `.preferredColorScheme` at the root in `MealPlannerApp`.
 - [ ] Choosing Dark or Light overrides the phone's setting on every screen straight away, including sheets, alerts, confirmation dialogs and the share sheet. System follows the phone again.
 - [ ] The choice survives a relaunch. Default is System.
 - [ ] Tests: each `AppearancePreference` maps to the right `ColorScheme?` (System → `nil`), and an unknown raw value falls back to System.
 - [ ] Manual: both accent colours (§13.1) read clearly with each forced appearance.
+
+### M12.2 — Keyboard, Settings pages & sharing (added in v1.6)
+
+Do this **after M12.1**.
+
+**Read:** §5.2 (Settings and Shared files), §10.10 (the share button), §10.12, §12.2, §13.4, §15.2.
+**Build:**
+- `Shared/KeyboardDismissal.swift`, applied to every screen listed in §13.4.
+- The Settings root list and its pages: `ReminderSettingsView`, `SharingSettingsView` (replacing `WhatsAppContactSection`), `AppearanceSettingsView` (moving M12.1's picker onto its own page), `AboutView`. Add the routes to `AppRoute`.
+- The new share button on the Shopping list. Remove "Send via WhatsApp", "Save as Text File…" and `ShareService.makeTextFile`.
+- No `@Model` changes and no change to any `@AppStorage` key, so saved reminders, contacts and export options carry over untouched.
+- [ ] The keyboard can be dismissed on every screen with a text field, by tapping outside, scrolling, and Return or Done. Tapping a button or row while the keyboard is up still does what it should.
+- [ ] Settings root shows only rows, each with its current value. Every row opens its page and Back returns to the root. Add Example Meals still shows its alert.
+- [ ] A reminder, contact and export options saved before this milestone still show and still work afterwards.
+- [ ] Share button: no contact → the iOS share sheet opens straight away. Contact saved → "Send to <Name>" and "Share…". The export toggles in Settings change what's shared. `markShared` and the banner still work.
+- [ ] Manual (iPhone): Send to <Name> opens that WhatsApp chat. Share → WhatsApp → pick a chat works.
 
 ---
 
