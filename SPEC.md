@@ -1,6 +1,6 @@
 # MealPlanner — Product & Technical Specification
 
-> **Version:** 1.4 (MVP + post-MVP §18) · **Date:** 2026-09-15 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
+> **Version:** 1.5 (MVP + post-MVP §18) · **Date:** 2026-09-15 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
 >
 > **To the implementing model:** This document is the source of truth. Build the app **one milestone at a time** (§16). Each milestone lists the spec sections it needs and the acceptance criteria that must pass before it counts as done. If something here is ambiguous, pick the simplest option that fits the spec and write it down in `DECISIONS.md`. Do **not** add features that are not in this document.
 
@@ -8,6 +8,7 @@
 
 | Version | Changes |
 |---------|---------|
+| 1.5 | **Appearance setting**: System / Light / Dark picker in Settings (§5.2, §10.12, §15.2). New milestone **M12.1**. |
 | 1.4 | The Plan screen no longer scrolls to today when it opens; it always starts at Monday (§10.1). |
 | 1.3 | **"Good as Leftovers"** toggle per meal: the leftovers prompt and leftover actions only appear for meals that keep well (§3, §6.4, §7.7, §8.2, §10.1, §10.3, §10.6, §14, Appendix A). New milestone **M7.1**. |
 | 1.2 | Added §18, **post-MVP** recipe photo import via the Claude API (milestones M13–M15). Nothing in M1–M12 changes. |
@@ -311,6 +312,7 @@ Features/
 Shared/
   PreviewContainer.swift
   DependentLeftoversDialog.swift     # reusable confirmationDialog modifier (§10.3)
+  AppearancePreference.swift         # System / Light / Dark (§10.12)
 Resources/
   Assets.xcassets
 ```
@@ -1478,7 +1480,13 @@ Ingredients created here stay in the library even if the meal is cancelled. That
    - When `normalizePhone` is `.invalid`, show a red caption "Add the country code (e.g. +44) and check the number."
    - A **"Send Test Message"** button opens `WhatsAppLink.url(text: "Test from MealPlanner 👋", phoneDigits:)`.
 3. **Library:** Ingredients (push `IngredientLibraryView`), "Add Example Meals" → alert "Added N example meals."
-4. **About:** version and build.
+4. **Appearance** (added in v1.5):
+   - A segmented `Picker("Appearance")` with **System**, **Light** and **Dark**, stored in `@AppStorage("appearance")` as `"system"` / `"light"` / `"dark"`. Default `"system"`; an unknown stored value is treated as System.
+   - Footer: "System matches your iPhone's setting."
+   - `enum AppearancePreference: String, CaseIterable { case system, light, dark }` in `Shared/`, with `var colorScheme: ColorScheme?` (`nil` for System).
+   - Applied **once**, at the root: `RootTabView().preferredColorScheme(preference.colorScheme)` in `MealPlannerApp`. It must cover every tab, sheet, alert, confirmation dialog and the share sheet, and change straight away without a relaunch.
+   - Not a `@Model` change, so no schema version is needed.
+5. **About:** version and build.
 
 ---
 
@@ -1652,6 +1660,7 @@ Mark every suite `@MainActor`. Use `#expect` / `#require`, and `@Test(arguments:
 - [ ] Force-quit and relaunch → everything is still there.
 - [ ] Reminder set 2 minutes ahead → notification arrives → tapping it opens Plan.
 - [ ] Dark mode and the largest text size look correct on every screen.
+- [ ] Appearance → Dark on a phone set to light (and Light on a phone set to dark) switches every screen, sheet and dialog straight away. System follows the phone again.
 
 ---
 
@@ -1773,6 +1782,17 @@ Do this **after M7 (and its fixes) and before M8**.
 
 **Read:** §13, §14, §15.2.
 - [ ] Every §15.2 item passes. No warnings, no `print`, no force-unwraps outside tests (except §7.6).
+
+### M12.1 — Appearance setting (added in v1.5)
+
+Do this **after M12 (and its fixes)**.
+
+**Read:** §10.12 (item 4), §13.1 (accent colours), §15.2 (the Appearance item).
+**Build:** `Shared/AppearancePreference.swift`, the Appearance section in `SettingsView`, and `.preferredColorScheme` at the root in `MealPlannerApp`.
+- [ ] Choosing Dark or Light overrides the phone's setting on every screen straight away, including sheets, alerts, confirmation dialogs and the share sheet. System follows the phone again.
+- [ ] The choice survives a relaunch. Default is System.
+- [ ] Tests: each `AppearancePreference` maps to the right `ColorScheme?` (System → `nil`), and an unknown raw value falls back to System.
+- [ ] Manual: both accent colours (§13.1) read clearly with each forced appearance.
 
 ---
 
