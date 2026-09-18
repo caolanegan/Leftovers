@@ -17,8 +17,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		A58E6E5A3057EE2000DBC5D0 /* MealPlanner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MealPlanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A58E6E673057EE2200DBC5D0 /* MealPlannerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MealPlannerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A58E6E5A3057EE2000DBC5D0 /* Leftovers.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Leftovers.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A58E6E673057EE2200DBC5D0 /* LeftoversTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LeftoversTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -64,8 +64,8 @@
 		A58E6E5B3057EE2000DBC5D0 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A58E6E5A3057EE2000DBC5D0 /* MealPlanner.app */,
-				A58E6E673057EE2200DBC5D0 /* MealPlannerTests.xctest */,
+				A58E6E5A3057EE2000DBC5D0 /* Leftovers.app */,
+				A58E6E673057EE2200DBC5D0 /* LeftoversTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -73,9 +73,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A58E6E593057EE2000DBC5D0 /* MealPlanner */ = {
+		A58E6E593057EE2000DBC5D0 /* Leftovers */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A58E6E7B3057EE2200DBC5D0 /* Build configuration list for PBXNativeTarget "MealPlanner" */;
+			buildConfigurationList = A58E6E7B3057EE2200DBC5D0 /* Build configuration list for PBXNativeTarget "Leftovers" */;
 			buildPhases = (
 				A58E6E563057EE2000DBC5D0 /* Sources */,
 				A58E6E573057EE2000DBC5D0 /* Frameworks */,
@@ -88,16 +88,16 @@
 			fileSystemSynchronizedGroups = (
 				A58E6E5C3057EE2000DBC5D0 /* MealPlanner */,
 			);
-			name = MealPlanner;
+			name = Leftovers;
 			packageProductDependencies = (
 			);
 			productName = MealPlanner;
-			productReference = A58E6E5A3057EE2000DBC5D0 /* MealPlanner.app */;
+			productReference = A58E6E5A3057EE2000DBC5D0 /* Leftovers.app */;
 			productType = "com.apple.product-type.application";
 		};
-		A58E6E663057EE2200DBC5D0 /* MealPlannerTests */ = {
+		A58E6E663057EE2200DBC5D0 /* LeftoversTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A58E6E7E3057EE2200DBC5D0 /* Build configuration list for PBXNativeTarget "MealPlannerTests" */;
+			buildConfigurationList = A58E6E7E3057EE2200DBC5D0 /* Build configuration list for PBXNativeTarget "LeftoversTests" */;
 			buildPhases = (
 				A58E6E633057EE2200DBC5D0 /* Sources */,
 				A58E6E643057EE2200DBC5D0 /* Frameworks */,
@@ -111,11 +111,11 @@
 			fileSystemSynchronizedGroups = (
 				A58E6E6A3057EE2200DBC5D0 /* MealPlannerTests */,
 			);
-			name = MealPlannerTests;
+			name = LeftoversTests;
 			packageProductDependencies = (
 			);
 			productName = MealPlannerTests;
-			productReference = A58E6E673057EE2200DBC5D0 /* MealPlannerTests.xctest */;
+			productReference = A58E6E673057EE2200DBC5D0 /* LeftoversTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -137,7 +137,7 @@
 					};
 				};
 			};
-			buildConfigurationList = A58E6E553057EE2000DBC5D0 /* Build configuration list for PBXProject "MealPlanner" */;
+			buildConfigurationList = A58E6E553057EE2000DBC5D0 /* Build configuration list for PBXProject "Leftovers" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -151,8 +151,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A58E6E593057EE2000DBC5D0 /* MealPlanner */,
-				A58E6E663057EE2200DBC5D0 /* MealPlannerTests */,
+				A58E6E593057EE2000DBC5D0 /* Leftovers */,
+				A58E6E663057EE2200DBC5D0 /* LeftoversTests */,
 			);
 		};
 /* End PBXProject section */
@@ -194,7 +194,7 @@
 /* Begin PBXTargetDependency section */
 		A58E6E693057EE2200DBC5D0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = A58E6E593057EE2000DBC5D0 /* MealPlanner */;
+			target = A58E6E593057EE2000DBC5D0 /* Leftovers */;
 			targetProxy = A58E6E683057EE2200DBC5D0 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -417,7 +417,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MealPlanner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MealPlanner";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Leftovers.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Leftovers";
 			};
 			name = Debug;
 		};
@@ -443,14 +443,14 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MealPlanner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MealPlanner";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Leftovers.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Leftovers";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A58E6E553057EE2000DBC5D0 /* Build configuration list for PBXProject "MealPlanner" */ = {
+		A58E6E553057EE2000DBC5D0 /* Build configuration list for PBXProject "Leftovers" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A58E6E793057EE2200DBC5D0 /* Debug */,
@@ -459,7 +459,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A58E6E7B3057EE2200DBC5D0 /* Build configuration list for PBXNativeTarget "MealPlanner" */ = {
+		A58E6E7B3057EE2200DBC5D0 /* Build configuration list for PBXNativeTarget "Leftovers" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A58E6E7C3057EE2200DBC5D0 /* Debug */,
@@ -468,7 +468,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A58E6E7E3057EE2200DBC5D0 /* Build configuration list for PBXNativeTarget "MealPlannerTests" */ = {
+		A58E6E7E3057EE2200DBC5D0 /* Build configuration list for PBXNativeTarget "LeftoversTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A58E6E7F3057EE2200DBC5D0 /* Debug */,
