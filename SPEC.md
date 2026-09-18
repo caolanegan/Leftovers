@@ -1622,7 +1622,7 @@ Build this once as a shared modifier in `Shared/KeyboardDismissal.swift` and app
 
 ### 13.5 Personality (added in v1.7)
 
-The approved mockups are the reference for everything below. Everything uses standard SwiftUI views, SF Symbols and system colours, and works in light mode, dark mode and at accessibility text sizes. Motion respects Reduce Motion (`@Environment(\.accessibilityReduceMotion)`): with it on, skip the animations but keep the haptics.
+The approved mockups in `docs/mockups/mealplanner-makeover.html` (open it in a browser) are the visual reference for everything below; where they and this text differ, this text wins. Everything uses standard SwiftUI views, SF Symbols and system colours, and works in light mode, dark mode and at accessibility text sizes. Motion respects Reduce Motion (`@Environment(\.accessibilityReduceMotion)`): with it on, skip the animations but keep the haptics.
 
 **Type.** Apply `.fontDesign(.rounded)` once at the root, so every tab, sheet and alert uses the rounded system font. Keep using text styles.
 

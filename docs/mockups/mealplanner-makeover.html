@@ -1,0 +1,518 @@
+<title>MealPlanner Makeover</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.400.0/dist/umd/lucide.min.js"></script>
+<style>
+:root{
+  --ground:#F3F5F1; --surface:#FFFFFF; --ink:#172019; --muted:#5A675E; --line:#DCE3DA;
+  --accent:#2E7D32; --accent-soft:#E3EFE2;
+  --display: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif;
+  --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --ground:#0F120F; --surface:#181C18; --ink:#E6EBE5; --muted:#9AA69C; --line:#2A312A; --accent:#66BB6A; --accent-soft:#1C2A1D; }
+}
+:root[data-theme="dark"]{ --ground:#0F120F; --surface:#181C18; --ink:#E6EBE5; --muted:#9AA69C; --line:#2A312A; --accent:#66BB6A; --accent-soft:#1C2A1D; }
+
+body{ background:var(--ground); color:var(--ink); font-family:var(--body); font-size:15px; line-height:1.55; padding-inline:20px; padding-block:0 64px; }
+.wrap{ max-width:1240px; margin:0 auto; }
+header.top{ padding-block:44px 8px; display:grid; gap:14px; }
+h1,h2{ font-family:var(--display); text-wrap:balance; margin:0; letter-spacing:-.01em; }
+h1{ font-size:clamp(30px,4.4vw,44px); font-weight:800; line-height:1.08; }
+h2{ font-size:26px; font-weight:800; line-height:1.15; }
+.lede{ max-width:64ch; color:var(--muted); margin:0; }
+.controls{ display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center; margin-top:6px; }
+.seg{ display:inline-flex; background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:3px; }
+.seg button{ font:600 13px var(--body); color:var(--muted); background:none; border:0; border-radius:999px; padding:6px 14px; cursor:pointer; }
+.seg button[aria-pressed="true"]{ background:var(--accent); color:#fff; }
+:root[data-theme="dark"] .seg button[aria-pressed="true"]{ color:#0F120F; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .seg button[aria-pressed="true"]{ color:#0F120F; } }
+.seg button:focus-visible, .tap:focus-visible, .dice-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+.key{ display:flex; flex-wrap:wrap; gap:8px; font-size:13px; color:var(--muted); }
+.pill{ display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:3px 10px; font-weight:600; font-size:12.5px; color:var(--ink); }
+.pill .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); }
+.pill.agreed .dot{ background:var(--muted); }
+
+section.block{ border-top:1px solid var(--line); margin-top:40px; padding-top:32px; display:grid; gap:18px; }
+.block-head{ display:grid; gap:8px; }
+.eyebrow{ font:700 11.5px var(--body); letter-spacing:.08em; text-transform:uppercase; color:var(--accent); }
+.eyebrow.agreed{ color:var(--muted); }
+.changes{ margin:0; padding-left:1.1em; max-width:70ch; color:var(--ink); display:grid; gap:4px; }
+.changes li::marker{ color:var(--accent); }
+.phones{ display:flex; flex-wrap:wrap; gap:30px 28px; align-items:flex-start; }
+figure{ margin:0; display:grid; gap:10px; justify-items:start; }
+figcaption{ display:grid; gap:2px; max-width:288px; }
+.cap-label{ font:800 13px var(--display); letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+.cap-label.after{ color:var(--accent); }
+.cap-note{ font-size:13px; color:var(--muted); line-height:1.4; }
+.hint{ font-size:12px; font-weight:600; color:var(--accent); background:var(--accent-soft); border-radius:999px; padding:2px 9px; }
+
+/* ---------- Phone ---------- */
+.phones-mode-light .phone, .phone{
+  --bg:#F2F2F7; --cell:#FFFFFF; --label:#000; --label2:rgba(60,60,67,.6); --label3:rgba(60,60,67,.3);
+  --sep:rgba(60,60,67,.16); --fill:rgba(120,120,128,.12); --tint:#2E7D32;
+  --orange:#FF9500; --teal:#30B0C7; --indigo:#5856D6; --green:#34C759; --red:#FF3B30;
+  --blue:#007AFF; --brown:#A2845E; --purple:#AF52DE; --gray:#8E8E93;
+  --bar:rgba(255,255,255,.86); --kb:#D1D4DA; --key:#FFFFFF; --scrim:rgba(0,0,0,.18);
+}
+main[data-phones="dark"] .phone{
+  --bg:#000; --cell:#1C1C1E; --label:#FFF; --label2:rgba(235,235,245,.6); --label3:rgba(235,235,245,.3);
+  --sep:rgba(84,84,88,.55); --fill:rgba(120,120,128,.24); --tint:#66BB6A;
+  --orange:#FF9F0A; --teal:#40CBE0; --indigo:#5E5CE6; --green:#30D158; --red:#FF453A;
+  --blue:#0A84FF; --brown:#AC8E68; --purple:#BF5AF2; --gray:#8E8E93;
+  --bar:rgba(36,36,38,.9); --kb:#232325; --key:#4B4B4E; --scrim:rgba(0,0,0,.45);
+}
+.phone{ width:288px; max-width:100%; flex:none; border-radius:46px; padding:9px; background:#111113; box-shadow:0 0 0 1px rgba(255,255,255,.06) inset, 0 24px 40px -22px rgba(0,0,0,.45); }
+.screen{ position:relative; height:600px; border-radius:38px; overflow:hidden; background:var(--bg); color:var(--label);
+  font-family:-apple-system, system-ui, "Segoe UI", Roboto, sans-serif; font-size:12.5px; line-height:1.3; display:flex; flex-direction:column; }
+.after .screen{ font-family:ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif; }
+.ic{ width:15px; height:15px; stroke-width:2; flex:none; }
+.status{ height:36px; flex:none; display:flex; align-items:center; justify-content:space-between; padding:0 22px 0 28px; font-weight:600; font-size:12px; position:relative; }
+.status .sys{ display:flex; gap:4px; }
+.status .sys .ic{ width:13px; height:13px; }
+.island{ position:absolute; top:9px; left:50%; transform:translateX(-50%); width:86px; height:25px; border-radius:14px; background:#000; }
+.navbar{ flex:none; position:relative; height:38px; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:13.5px; }
+.navbar.lead{ justify-content:flex-start; padding-left:16px; }
+.navbar.large{ height:56px; align-items:flex-end; justify-content:flex-start; padding:0 16px 4px; font-size:25px; font-weight:800; }
+.tools{ position:absolute; right:10px; top:4px; display:flex; background:var(--bar); border-radius:18px; padding:5px 4px; box-shadow:0 1px 4px rgba(0,0,0,.12); border:.5px solid var(--sep); }
+.tools span{ display:grid; place-items:center; width:28px; }
+.tools .ic{ width:16px; height:16px; }
+.back{ position:absolute; left:10px; top:4px; display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:var(--bar); border:.5px solid var(--sep); box-shadow:0 1px 4px rgba(0,0,0,.12); }
+.weeknav{ flex:none; display:flex; align-items:center; justify-content:space-between; padding:2px 10px 8px; }
+.weeknav .ic{ color:var(--tint); width:18px; height:18px; }
+.weeknav .t{ text-align:center; }
+.weeknav b{ display:block; font-size:13px; }
+.weeknav small{ color:var(--label2); font-size:10.5px; }
+.content{ flex:1; overflow:hidden; padding:0 12px 80px; }
+.sechead{ display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:var(--label2); text-transform:uppercase; font-weight:500; padding:12px 8px 5px; }
+.sechead .ic{ color:var(--tint); width:16px; height:16px; }
+.group{ background:var(--cell); border-radius:14px; overflow:hidden; }
+.row{ display:flex; align-items:center; gap:8px; padding:9px 11px; min-height:38px; position:relative; }
+.row + .row::before{ content:""; position:absolute; top:0; left:11px; right:0; height:1px; background:var(--sep); }
+.chev{ color:var(--label3); width:13px; height:13px; margin-left:auto; }
+.muted{ color:var(--label2); }
+.mt{ width:84px; flex:none; display:flex; gap:5px; align-items:center; color:var(--label2); }
+.mt .ic{ width:14px; height:14px; }
+.meal{ flex:1; }
+.left-line{ display:flex; align-items:center; gap:3px; color:var(--label2); font-size:10.5px; margin-top:1px; }
+.left-line .ic{ width:10px; height:10px; }
+.tabbar{ position:absolute; left:10px; right:10px; bottom:12px; height:52px; border-radius:27px; background:var(--bar); display:flex; justify-content:space-around; align-items:center; box-shadow:0 2px 14px rgba(0,0,0,.14); border:.5px solid var(--sep); }
+.tab{ display:flex; flex-direction:column; align-items:center; gap:2px; font-size:9px; font-weight:600; padding:5px 11px; border-radius:22px; position:relative; }
+.tab .ic{ width:18px; height:18px; }
+.tab.on{ color:var(--tint); background:var(--fill); }
+.badge{ position:absolute; top:0; right:5px; background:var(--red); color:#fff; font-size:8.5px; font-weight:700; border-radius:8px; padding:0 4px; min-width:15px; line-height:15px; text-align:center; }
+
+/* After: Plan */
+.tonight{ display:flex; gap:10px; align-items:center; background:var(--cell); border-radius:16px; padding:9px; margin:2px 0 4px; }
+.tonight .photo{ width:60px; height:60px; border-radius:12px; flex:none; }
+.tonight .eb{ display:flex; align-items:center; gap:4px; color:var(--indigo); font-size:10px; font-weight:800; letter-spacing:.05em; }
+.tonight .eb .ic{ width:11px; height:11px; }
+.tonight .nm{ font-size:15px; font-weight:800; margin-top:1px; }
+.tonight .meta{ font-size:10.5px; color:var(--label2); }
+.today-pill{ background:var(--tint); color:#fff; font-size:8.5px; font-weight:800; letter-spacing:.04em; padding:2px 6px; border-radius:6px; margin-left:6px; }
+main[data-phones="dark"] .today-pill{ color:#000; }
+.sechead .d{ display:flex; align-items:center; }
+.group.today{ box-shadow:0 0 0 1.5px var(--tint); }
+.thumb{ width:32px; height:32px; border-radius:8px; flex:none; }
+.thumb.empty{ display:grid; place-items:center; border:1.5px dashed color-mix(in srgb, var(--c) 60%, transparent); color:var(--c); background:color-mix(in srgb, var(--c) 8%, transparent); }
+.thumb.empty .ic{ width:14px; height:14px; }
+.stack{ display:grid; gap:1px; min-width:0; }
+.kind{ display:flex; align-items:center; gap:3px; color:var(--c); font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+.kind .ic{ width:11px; height:11px; stroke-width:2.4; }
+.name{ font-size:13px; font-weight:600; }
+.name.muted{ font-weight:500; }
+.after .row.r2{ padding:7px 11px; }
+.after .row.r2 + .row.r2::before{ left:51px; }
+.dice-btn{ background:none; border:0; padding:0; color:inherit; cursor:pointer; display:grid; place-items:center; }
+
+/* Shopping */
+.progress{ background:var(--cell); border-radius:14px; padding:11px 12px; margin-bottom:4px; }
+.bar{ height:4px; border-radius:3px; background:var(--fill); overflow:hidden; }
+.bar i{ display:block; height:100%; background:var(--tint); border-radius:3px; transition:width .35s ease; }
+.after .progress{ display:grid; gap:7px; }
+.after .progress .lbl{ display:flex; justify-content:space-between; font-size:11.5px; }
+.after .progress .lbl b{ font-weight:800; }
+.after .bar{ height:7px; border-radius:4px; }
+.aisle-plain{ font-size:12px; font-weight:600; color:var(--label2); padding:12px 8px 5px; }
+.aisle{ display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:800; padding:12px 4px 6px; }
+.aisle .count{ margin-left:auto; font-size:10.5px; color:var(--label2); font-weight:600; }
+.tile{ width:22px; height:22px; border-radius:7px; display:grid; place-items:center; flex:none; color:var(--c); background:color-mix(in srgb, var(--c) 17%, transparent); }
+.tile .ic{ width:13px; height:13px; stroke-width:2.3; }
+.tile.solid{ background:var(--c); color:#fff; }
+.item{ align-items:flex-start; }
+.item .body{ flex:1; min-width:0; display:grid; gap:1px; }
+.item .nm{ font-size:13px; }
+.item .cap{ font-size:10.5px; color:var(--label2); }
+.item .need{ font-size:10.5px; color:var(--orange); font-weight:600; }
+.item .amt{ color:var(--label2); font-variant-numeric:tabular-nums; font-size:12px; margin-top:1px; }
+.item.on .nm{ text-decoration:line-through; color:var(--label2); }
+.check{ width:18px; height:18px; border-radius:50%; flex:none; border:1.5px solid var(--label3); display:grid; place-items:center; margin-top:0; }
+.check .ic{ width:11px; height:11px; stroke-width:3.2; color:#fff; opacity:0; }
+.item.on .check{ background:var(--tint); border-color:var(--tint); }
+.item.on .check .ic{ opacity:1; }
+main[data-phones="dark"] .item.on .check .ic{ color:#000; }
+.item.warn .check{ border-color:var(--orange); background:var(--orange); }
+.item.warn .check .ic{ opacity:1; }
+.bang{ color:#fff; font-size:12px; line-height:1; font-weight:800; }
+.tap{ cursor:pointer; }
+.after .item .check{ width:20px; height:20px; }
+.done-card{ background:var(--cell); border-radius:16px; padding:16px 14px; display:grid; justify-items:center; text-align:center; gap:6px; margin-bottom:4px; }
+.done-card .big{ width:46px; height:46px; border-radius:50%; background:var(--tint); display:grid; place-items:center; color:#fff; }
+main[data-phones="dark"] .done-card .big{ color:#000; }
+.done-card .big .ic{ width:26px; height:26px; stroke-width:3; }
+.done-card b{ font-size:17px; font-weight:800; }
+.done-card span{ font-size:11.5px; color:var(--label2); max-width:22ch; }
+
+/* Empty states */
+.empty{ flex:1; display:grid; place-content:center; justify-items:center; text-align:center; gap:8px; padding:0 26px 80px; }
+.empty .ic.big{ width:40px; height:40px; color:var(--label2); stroke-width:1.6; }
+.empty b{ font-size:16px; }
+.empty p{ margin:0; color:var(--label2); font-size:12px; }
+.empty .links{ display:grid; gap:6px; margin-top:4px; color:var(--tint); font-size:13px; }
+.halo{ width:76px; height:76px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--tint) 14%, transparent); color:var(--tint); }
+.halo .ic{ width:34px; height:34px; stroke-width:1.9; }
+.btn{ display:inline-flex; justify-content:center; align-items:center; gap:6px; border-radius:12px; padding:9px 16px; font-weight:800; font-size:13px; }
+.btn.fill{ background:var(--tint); color:#fff; }
+main[data-phones="dark"] .btn.fill{ color:#000; }
+.btn.soft{ background:color-mix(in srgb, var(--tint) 14%, transparent); color:var(--tint); }
+.btn .ic{ width:14px; height:14px; }
+.blank-card{ background:var(--cell); border-radius:16px; padding:14px; display:grid; gap:8px; margin-bottom:4px; }
+.blank-card .top{ display:flex; gap:10px; align-items:center; }
+.blank-card b{ font-size:15px; font-weight:800; }
+.blank-card p{ margin:0; font-size:11.5px; color:var(--label2); }
+.blank-card .acts{ display:flex; gap:8px; }
+.blank-card .acts .btn{ flex:1; padding:8px 8px; font-size:12px; }
+
+/* Settings */
+.set-row .tile{ width:26px; height:26px; border-radius:7px; }
+.set-row .tile .ic{ width:15px; height:15px; }
+.set-row .val{ margin-left:auto; color:var(--label2); }
+.set-row .val + .chev{ margin-left:4px; }
+.set-row .lbl{ font-size:13px; }
+.after .set-row + .set-row::before{ left:45px; }
+.foot{ font-size:10.5px; color:var(--label2); padding:6px 10px 0; line-height:1.35; }
+.switch{ width:38px; height:23px; border-radius:12px; background:var(--green); position:relative; margin-left:auto; flex:none; }
+.switch::after{ content:""; position:absolute; top:2px; right:2px; width:19px; height:19px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+.switch.off{ background:var(--fill); }
+.switch.off::after{ right:auto; left:2px; }
+.chip-val{ margin-left:auto; background:var(--fill); border-radius:7px; padding:3px 8px; font-variant-numeric:tabular-nums; }
+.field{ color:var(--label); }
+.field.ph{ color:var(--label3); }
+.caret{ display:inline-block; width:1.5px; height:14px; background:var(--tint); vertical-align:-2px; margin-left:1px; animation:blink 1s steps(1) infinite; }
+.link{ color:var(--tint); }
+.kb{ position:absolute; left:0; right:0; bottom:0; background:var(--kb); padding-bottom:26px; }
+.kb .tb{ display:flex; justify-content:flex-end; align-items:center; height:34px; padding:0 14px; border-bottom:.5px solid var(--sep); background:var(--bar); }
+.kb .tb b{ color:var(--tint); font-size:13.5px; }
+.keys{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:7px 6px 4px; }
+.k{ background:var(--key); border-radius:7px; height:40px; display:grid; place-content:center; text-align:center; box-shadow:0 1px 0 rgba(0,0,0,.25); }
+.k b{ font-size:18px; font-weight:400; line-height:1; }
+.k small{ font-size:7.5px; letter-spacing:.12em; font-weight:700; }
+.k.clear{ background:none; box-shadow:none; }
+.scrim{ position:absolute; inset:0; background:var(--scrim); }
+.menu{ position:absolute; right:12px; top:78px; width:190px; background:var(--cell); border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.28); overflow:hidden; }
+.menu .row{ font-size:13px; }
+.menu .row .ic{ margin-left:auto; width:15px; height:15px; }
+.menu .sub{ display:block; font-size:10px; color:var(--label2); }
+
+/* Motion */
+@keyframes bounce{ 0%{transform:rotate(0) scale(1)} 30%{transform:rotate(-24deg) scale(1.25)} 60%{transform:rotate(14deg) scale(.95)} 100%{transform:rotate(0) scale(1)} }
+@keyframes pop{ 0%{transform:scale(.55)} 60%{transform:scale(1.18)} 100%{transform:scale(1)} }
+@keyframes rise{ from{opacity:.15; transform:translateY(4px)} to{opacity:1; transform:none} }
+@keyframes blink{ 50%{opacity:0} }
+.bounce{ animation:bounce .6s cubic-bezier(.3,.7,.3,1.2); }
+.pop{ animation:pop .38s cubic-bezier(.3,.7,.3,1.3); }
+.rise{ animation:rise .45s ease both; }
+@media (prefers-reduced-motion: reduce){ .bounce,.pop,.rise,.caret{ animation:none !important; } .bar i{ transition:none; } }
+
+.closing{ display:grid; gap:10px; max-width:70ch; }
+.closing ul{ margin:0; padding-left:1.1em; display:grid; gap:4px; }
+.note{ font-size:13px; color:var(--muted); }
+@media (max-width:640px){ h2{ font-size:22px; } .phones{ gap:26px; } }
+</style>
+
+<main class="wrap" id="main" data-phones="light">
+  <header class="top">
+    <span class="eyebrow">MealPlanner · design review</span>
+    <h1>MealPlanner Makeover</h1>
+    <p class="lede">Mockups of the four personality ideas, set against how the app looks today. At the end are the Settings and sharing screens that spec v1.6 already describes, so you can check those too. The after phones respond to taps.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Phone appearance">
+        <button type="button" id="mode-light" aria-pressed="true">Light phones</button>
+        <button type="button" id="mode-dark" aria-pressed="false">Dark phones</button>
+      </div>
+      <div class="key">
+        <span class="pill"><span class="dot"></span>Needs your OK</span>
+        <span class="pill agreed"><span class="dot"></span>Already agreed</span>
+      </div>
+    </div>
+    <p class="note">Icons stand in for Apple's SF Symbols, and the coloured tiles stand in for your own meal photos.</p>
+  </header>
+
+  <section class="block" aria-labelledby="s-plan">
+    <div class="block-head">
+      <span class="eyebrow">Needs your OK · Colour and type · Photos on the plan</span>
+      <h2 id="s-plan">Plan</h2>
+      <ul class="changes">
+        <li>Rounded system font throughout the app.</li>
+        <li>Each meal type has its own colour: breakfast orange, lunch teal, dinner indigo.</li>
+        <li>A small photo on every planned meal. Empty slots show a dashed "+" in the meal type's colour.</li>
+        <li>A <b>Tonight</b> card at the top of the current week. The plan always opens at Monday now, so this keeps today's dinner in view.</li>
+        <li>Today's section gets a green outline and a TODAY tag.</li>
+      </ul>
+    </div>
+    <div class="phones" id="p-plan"></div>
+  </section>
+
+  <section class="block" aria-labelledby="s-shop">
+    <div class="block-head">
+      <span class="eyebrow">Needs your OK · Colour and type · Little moments</span>
+      <h2 id="s-shop">Shopping list</h2>
+      <ul class="changes">
+        <li>Each aisle gets its own coloured icon: carrot, fish, milk, croissant, tin, house.</li>
+        <li>A bolder progress bar that also says how many items are left.</li>
+        <li>Ticks pop when you check an item off.</li>
+        <li>When everything is ticked, an "All done!" card replaces the progress bar.</li>
+      </ul>
+    </div>
+    <div class="phones" id="p-shop"></div>
+  </section>
+
+  <section class="block" aria-labelledby="s-empty">
+    <div class="block-head">
+      <span class="eyebrow">Needs your OK · Friendlier words · Little moments</span>
+      <h2 id="s-empty">Empty screens</h2>
+      <ul class="changes">
+        <li>Warmer wording and a clear main button, so an empty screen says what to do next.</li>
+        <li>A new "blank week" card on an empty Plan week, with Randomise Week and Pick a Meal.</li>
+        <li>The dice bounce whenever you randomise.</li>
+      </ul>
+    </div>
+    <div class="phones" id="p-empty"></div>
+  </section>
+
+  <section class="block" aria-labelledby="s-settings">
+    <div class="block-head">
+      <span class="eyebrow agreed">Already agreed · spec v1.6 (M12.2)</span>
+      <h2 id="s-settings">Settings, sharing and the keyboard</h2>
+      <ul class="changes">
+        <li>Settings is a list of rows. Each row shows its current value and opens its own page.</li>
+        <li>Reminder and Sharing each get their own page. The WhatsApp contact becomes an optional <b>quick-send</b> contact.</li>
+        <li>With a contact saved, the share button offers "Send to Sam" and "Share…". Without one, it opens the iOS share sheet straight away.</li>
+        <li>Number keypads get a <b>Done</b> key. Tapping outside a field or scrolling also hides the keyboard.</li>
+        <li>The coloured icon tiles on the Settings rows are part of the "Colour and type" idea.</li>
+      </ul>
+    </div>
+    <div class="phones" id="p-settings"></div>
+  </section>
+
+  <section class="block closing" aria-labelledby="s-next">
+    <h2 id="s-next">Your call</h2>
+    <p class="lede">Tell me what to keep, change or drop, and I'll write the chosen ideas into the spec as their own milestone after M12.2. For example:</p>
+    <ul>
+      <li>Different meal-type colours, or colour on the icons only.</li>
+      <li>Keep the Tonight card or drop it.</li>
+      <li>Other wording for the empty screens or the "All done!" card.</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+(function(){
+  const I = (n, c) => `<i data-lucide="${n}" class="ic ${c || ''}"></i>`;
+  const chev = I('chevron-right','chev');
+  const photo = {
+    eggs:'radial-gradient(circle at 44% 42%, #FFD84D 0 38%, #E9B949 39% 47%, #B9803F 48% 100%)',
+    oats:'radial-gradient(circle at 32% 34%, #4E5FC9 0 9%, transparent 10%), radial-gradient(circle at 64% 58%, #3E4BA8 0 8%, transparent 9%), radial-gradient(circle at 48% 72%, #5A6BD4 0 7%, transparent 8%), linear-gradient(135deg, #F3E4C4, #D8B97F)',
+    bolo:'radial-gradient(circle at 60% 38%, #3F8F3A 0 6%, transparent 7%), radial-gradient(circle at 50% 50%, #B5301D 0 34%, #E7C877 35% 100%)',
+    faji:'repeating-linear-gradient(128deg, #D9412B 0 7px, #F2C14E 7px 13px, #5D9C3A 13px 19px, #E7A55A 19px 25px)',
+    wrap:'radial-gradient(circle at 36% 40%, #F4EDD2 0 17%, transparent 18%), radial-gradient(circle at 66% 62%, #F4EDD2 0 12%, transparent 13%), linear-gradient(135deg, #8CC152, #4F8A2B)',
+    soup:'radial-gradient(circle at 55% 45%, #F7F2EA 0 7%, transparent 8%), radial-gradient(circle at 50% 50%, #DE4A2F 0 52%, #EFE9DF 53% 100%)',
+    chilli:'radial-gradient(circle at 40% 44%, #F1E4C9 0 6%, transparent 7%), radial-gradient(circle at 60% 58%, #5B1F14 0 6%, transparent 7%), radial-gradient(circle at 50% 50%, #8E2D1C 0 52%, #EEE8DD 53% 100%)'
+  };
+  const status = () => `<div class="status"><span>9:41</span><span class="island"></span><span class="sys">${I('signal')}${I('wifi')}${I('battery-full')}</span></div>`;
+  const tabbar = (on, badge) => `<div class="tabbar">${[['calendar','Plan'],['utensils','Meals'],['shopping-cart','Shopping'],['settings','Settings']].map((t,i)=>`<span class="tab ${i===on?'on':''}">${I(t[0])}${t[1]}${i===2&&badge?`<span class="badge">${badge}</span>`:''}</span>`).join('')}</div>`;
+  const tools = (icons, diceId) => `<span class="tools">${icons.map(n => n==='dices' && diceId ? `<span><button type="button" class="dice-btn" data-dice="${diceId}" aria-label="Randomise">${I('dices')}</button></span>` : `<span>${I(n)}</span>`).join('')}</span>`;
+  const navbar = (title, icons, opts={}) => `<div class="navbar ${opts.lead?'lead':''}">${opts.back?`<span class="back">${I('chevron-left')}</span>`:''}${title}${icons&&icons.length?tools(icons, opts.dice):''}</div>`;
+  const weeknav = (title, sub) => `<div class="weeknav">${I('chevron-left')}<span class="t"><b>${title}</b><small>${sub}</small></span>${I('chevron-right')}</div>`;
+  const phone = (kind, inner) => `<div class="phone ${kind}"><div class="screen">${inner}</div></div>`;
+  const fig = (label, note, ph, after, hint) => `<figure><figcaption><span class="cap-label ${after?'after':''}">${label}${hint?` <span class="hint">${hint}</span>`:''}</span><span class="cap-note">${note}</span></figcaption>${ph}</figure>`;
+
+  /* ---------- Plan ---------- */
+  const oldRow = (icon, type, meal, left) => `<div class="row"><span class="mt">${I(icon)}${type}</span><span class="meal ${meal.startsWith('Add ')?'muted':''}">${meal}${left?`<span class="left-line">${I('undo-2')}Leftovers · ${left}</span>`:''}</span>${chev}</div>`;
+  const planBefore = phone('before', status() + navbar('Plan',['dices','ellipsis']) + weeknav('This week · 14–20 Sep','12 of 21 meals planned') +
+    `<div class="content">
+      <div class="sechead">Monday 14 Sep ${I('dices')}</div>
+      <div class="group">${oldRow('sunrise','Breakfast','Scrambled eggs on toast')}${oldRow('sun','Lunch','Add lunch')}${oldRow('moon','Dinner','Spaghetti bolognese')}</div>
+      <div class="sechead">Tuesday 15 Sep · Today ${I('dices')}</div>
+      <div class="group">${oldRow('sunrise','Breakfast','Overnight oats')}${oldRow('sun','Lunch','Spaghetti bolognese','Mon dinner')}${oldRow('moon','Dinner','Chicken fajitas')}</div>
+      <div class="sechead">Wednesday 16 Sep ${I('dices')}</div>
+      <div class="group">${oldRow('sunrise','Breakfast','Scrambled eggs on toast')}${oldRow('sun','Lunch','Chicken Caesar wrap')}</div>
+    </div>` + tabbar(0, 23));
+
+  const kinds = { b:['sunrise','Breakfast','var(--orange)'], l:['sun','Lunch','var(--teal)'], d:['moon','Dinner','var(--indigo)'] };
+  const newRow = (k, meal, ph, left) => {
+    const [icon, type, c] = kinds[k];
+    const thumb = ph ? `<span class="thumb" style="background:${photo[ph]}"></span>` : `<span class="thumb empty" style="--c:${c}">${I('plus')}</span>`;
+    return `<div class="row r2">${thumb}<span class="stack"><span class="kind" style="--c:${c}">${I(icon)}${type}</span><span class="name ${ph?'':'muted'}">${meal}</span>${left?`<span class="left-line">${I('undo-2')}Leftovers · ${left}</span>`:''}</span>${chev}</div>`;
+  };
+  const planAfter = phone('after', status() + navbar('Plan',['dices','ellipsis'],{dice:'plan'}) + weeknav('This week · 14–20 Sep','12 of 21 meals planned') +
+    `<div class="content" data-rows="plan">
+      <div class="tonight"><span class="photo" style="background:${photo.faji}"></span><span class="stack"><span class="eb">${I('moon')}TONIGHT</span><span class="nm">Chicken fajitas</span><span class="meta">30 min · 6 ingredients</span></span>${chev}</div>
+      <div class="sechead"><span class="d">Monday 14 Sep</span> <button type="button" class="dice-btn" data-dice="plan" aria-label="Randomise Monday">${I('dices')}</button></div>
+      <div class="group">${newRow('b','Scrambled eggs on toast','eggs')}${newRow('l','Add lunch')}${newRow('d','Spaghetti bolognese','bolo')}</div>
+      <div class="sechead"><span class="d">Tuesday 15 Sep<span class="today-pill">TODAY</span></span> <button type="button" class="dice-btn" data-dice="plan" aria-label="Randomise Tuesday">${I('dices')}</button></div>
+      <div class="group today">${newRow('b','Overnight oats','oats')}${newRow('l','Spaghetti bolognese','bolo','Mon dinner')}${newRow('d','Chicken fajitas','faji')}</div>
+    </div>` + tabbar(0, 23));
+
+  document.getElementById('p-plan').innerHTML =
+    fig('Before','How the Plan tab looks today.', planBefore) +
+    fig('After','Colour, photos and the Tonight card.', planAfter, true, 'Tap a dice');
+
+  /* ---------- Shopping ---------- */
+  const oldItem = (state, nm, amt, cap, need) => `<div class="row item ${state}"><span class="check">${state==='warn'?'<b class="bang">!</b>':I('check')}</span><span class="body"><span class="nm">${nm}</span>${need?`<span class="need">${need}</span>`:''}${cap?`<span class="cap">${cap}</span>`:''}</span><span class="amt">${amt}</span></div>`;
+  const shopBefore = phone('before', status() + navbar('Shopping',['plus','share','ellipsis'],{lead:true}) + weeknav('This week · 14–20 Sep','5 of 28 ticked') +
+    `<div class="content">
+      <div class="progress"><div class="bar"><i style="width:18%"></i></div></div>
+      <div class="aisle-plain">Fruit &amp; Veg</div>
+      <div class="group">${oldItem('on','Blueberries','3 handfuls','Overnight oats')}${oldItem('warn','Garlic','21 cloves','Tomato soup, Bolognese, Chilli','Need 2 cloves more')}${oldItem('','Onion','10','Bolognese, Fajitas, Chilli')}${oldItem('','Peppers','2','Chicken fajitas')}</div>
+      <div class="aisle-plain">Meat &amp; Fish</div>
+      <div class="group">${oldItem('','Beef mince','1.5 kg','Spaghetti bolognese')}${oldItem('','Chicken breast','1.15 kg','Caesar wrap, Fajitas, Added by you')}</div>
+    </div>` + tabbar(2, 23));
+
+  const aisle = (icon, c, name, n) => `<div class="aisle"><span class="tile" style="--c:${c}">${I(icon)}</span>${name}<span class="count">${n}</span></div>`;
+  const newItem = (state, nm, amt, cap, need, key) => `<div class="row item ${state} ${key?'tap':''}" ${key?`role="button" tabindex="0" aria-pressed="${state==='on'}"`:''}><span class="check">${state==='warn'?'<b class="bang">!</b>':I('check')}</span><span class="body"><span class="nm">${nm}</span>${need?`<span class="need">${need}</span>`:''}${cap?`<span class="cap">${cap}</span>`:''}</span><span class="amt">${amt}</span></div>`;
+  const shopAfter = phone('after', status() + navbar('Shopping',['plus','share','ellipsis'],{lead:true}) + weeknav('This week · 14–20 Sep','Tap items to tick them off') +
+    `<div class="content" data-shop="live">
+      <div class="progress"><div class="lbl"><span><b data-ticked>5</b> of 28 ticked</span><span class="muted"><span data-left>23</span> to go</span></div><div class="bar"><i data-bar style="width:18%"></i></div></div>
+      ${aisle('carrot','var(--green)','Fruit &amp; Veg',4)}
+      <div class="group">${newItem('on','Blueberries','3 handfuls','Overnight oats','',1)}${newItem('warn','Garlic','21 cloves','Tomato soup, Bolognese, Chilli','Need 2 cloves more')}${newItem('','Onion','10','Bolognese, Fajitas, Chilli','',1)}${newItem('','Peppers','2','Chicken fajitas','',1)}</div>
+      ${aisle('fish','var(--red)','Meat &amp; Fish',2)}
+      <div class="group">${newItem('','Beef mince','1.5 kg','Spaghetti bolognese','',1)}${newItem('','Chicken breast','1.15 kg','Caesar wrap, Fajitas, Added by you','',1)}</div>
+    </div>` + tabbar(2, 23));
+
+  const shopDone = phone('after', status() + navbar('Shopping',['plus','share','ellipsis'],{lead:true}) + weeknav('This week · 14–20 Sep','28 of 28 ticked') +
+    `<div class="content">
+      <div class="done-card"><span class="big">${I('check')}</span><b>All done!</b><span>Everything's ticked off. Enjoy your week of meals.</span></div>
+      ${aisle('carrot','var(--green)','Fruit &amp; Veg',4)}
+      <div class="group">${newItem('on','Blueberries','3 handfuls','Overnight oats')}${newItem('on','Garlic','21 cloves','Tomato soup, Bolognese, Chilli')}${newItem('on','Onion','10','Bolognese, Fajitas, Chilli')}</div>
+      ${aisle('milk','var(--blue)','Dairy &amp; Eggs',5)}
+      <div class="group">${newItem('on','Butter','30 g','Scrambled eggs on toast')}${newItem('on','Eggs','9','Scrambled eggs on toast')}</div>
+    </div>` + tabbar(2, 0));
+
+  document.getElementById('p-shop').innerHTML =
+    fig('Before','How the list looks today.', shopBefore) +
+    fig('After','Aisle icons and a clearer progress bar.', shopAfter, true, 'Tap a row') +
+    fig('After · all ticked','What you see once the shop is done.', shopDone, true);
+
+  /* ---------- Empty ---------- */
+  const emptyBefore = phone('before', status() + navbar('Shopping',['plus','share','ellipsis'],{lead:true}) + weeknav('Next week · 21–27 Sep','') +
+    `<div class="empty">${I('shopping-cart','big')}<b>No Meals Planned</b><p>Plan some meals to build a shopping list, or add an item by hand.</p><span class="links"><span>Go to Plan</span><span>Add Item</span></span></div>` + tabbar(2, 0));
+  const emptyAfter = phone('after', status() + navbar('Shopping',['plus','share','ellipsis'],{lead:true}) + weeknav('Next week · 21–27 Sep','') +
+    `<div class="empty"><span class="halo">${I('shopping-basket')}</span><b>Your list is empty, for now</b><p>Plan a few meals and everything you need lands here, sorted by aisle.</p><span class="links"><span class="btn fill">Plan Some Meals</span><span>Add an Item</span></span></div>` + tabbar(2, 0));
+  const blankWeek = phone('after', status() + navbar('Plan',['dices','ellipsis'],{dice:'blank'}) + weeknav('Next week · 21–27 Sep','0 of 21 meals planned') +
+    `<div class="content" data-rows="blank">
+      <div class="blank-card"><div class="top"><span class="tile solid" style="--c:var(--tint);width:36px;height:36px;border-radius:10px"><button type="button" class="dice-btn" data-dice="blank" aria-label="Randomise Week">${I('dices')}</button></span><b>A blank week</b></div><p>Nothing planned yet. Roll the dice for a surprise week, or pick your first meal.</p><div class="acts"><span class="btn fill">${I('dices')}Randomise Week</span><span class="btn soft">Pick a Meal</span></div></div>
+      <div class="sechead"><span class="d">Monday 21 Sep</span> ${I('dices')}</div>
+      <div class="group">${newRow('b','Add breakfast')}${newRow('l','Add lunch')}${newRow('d','Add dinner')}</div>
+    </div>` + tabbar(0, 0));
+
+  document.getElementById('p-empty').innerHTML =
+    fig('Before','Shopping with nothing planned, today.', emptyBefore) +
+    fig('After','The same screen, warmer.', emptyAfter, true) +
+    fig('After · new','A blank Plan week.', blankWeek, true, 'Tap the dice');
+
+  /* ---------- Settings & sharing ---------- */
+  const setRow = (icon, c, label, val, nochev, link) => `<div class="row set-row"><span class="tile solid" style="--c:${c}">${I(icon)}</span><span class="lbl ${link?'link':''}">${label}</span>${val?`<span class="val">${val}</span>`:''}${nochev?'':chev}</div>`;
+  const settingsRoot = phone('after', status() + `<div class="navbar large">Settings</div>` +
+    `<div class="content" style="padding-top:8px">
+      <div class="group">${setRow('bell','var(--red)','Shopping Reminder','Sun 18:00')}${setRow('share','var(--green)','Sharing','Sam')}${setRow('contrast','var(--indigo)','Appearance','System')}</div>
+      <div class="sechead">Library</div>
+      <div class="group">${setRow('carrot','var(--orange)','Ingredients')}${setRow('sparkles','var(--purple)','Add Example Meals','',true,true)}</div>
+      <div class="sechead">About</div>
+      <div class="group">${setRow('info','var(--gray)','About')}</div>
+    </div>` + tabbar(3, 23));
+
+  const reminder = phone('after', status() + navbar('Shopping Reminder',[],{back:true}) +
+    `<div class="content" style="padding-top:12px">
+      <div class="group"><div class="row">Reminder<span class="switch"></span></div><div class="row">Day<span class="val muted" style="margin-left:auto">Sunday</span>${I('chevrons-up-down','chev')}</div><div class="row">Time<span class="chip-val">18:00</span></div></div>
+      <div class="foot">Next reminder: Sunday 20 Sep at 18:00</div>
+    </div>` + tabbar(3, 23));
+
+  const sharing = phone('after', status() + navbar('Sharing',[],{back:true}) +
+    `<div class="content" style="padding-top:4px">
+      <div class="sechead">Quick send</div>
+      <div class="group"><div class="row"><span class="field">Sam</span></div><div class="row"><span class="field">+44 7700 900123</span></div><div class="row"><span class="link">Send Test Message</span></div></div>
+      <div class="foot">Save someone you often send your list to. The share button on your shopping list will offer to send it straight to their WhatsApp chat. Saved only on this iPhone.</div>
+      <div class="sechead">What to include</div>
+      <div class="group"><div class="row">Include Ticked Items<span class="switch off"></span></div><div class="row">Include Meal Plan<span class="switch"></span></div></div>
+    </div>` + tabbar(3, 23));
+
+  const key = (d, l) => `<span class="k"><b>${d}</b><small>${l||'&nbsp;'}</small></span>`;
+  const typing = phone('after', status() + navbar('Sharing',[],{back:true}) +
+    `<div class="content" style="padding-top:4px">
+      <div class="sechead">Quick send</div>
+      <div class="group"><div class="row"><span class="field">Sam</span></div><div class="row"><span class="field">+44 7700 9001<span class="caret"></span></span></div><div class="row"><span class="link">Send Test Message</span></div></div>
+    </div>
+    <div class="kb"><div class="tb"><b>Done</b></div><div class="keys">${key(1)}${key(2,'ABC')}${key(3,'DEF')}${key(4,'GHI')}${key(5,'JKL')}${key(6,'MNO')}${key(7,'PQRS')}${key(8,'TUV')}${key(9,'WXYZ')}<span class="k clear"><b>+*#</b></span>${key(0,'+')}<span class="k clear">${I('delete')}</span></div></div>`);
+
+  const shareMenu = phone('after', status() + navbar('Shopping',['plus','share','ellipsis'],{lead:true}) + weeknav('This week · 14–20 Sep','5 of 28 ticked') +
+    `<div class="content">
+      <div class="progress"><div class="lbl"><span><b>5</b> of 28 ticked</span><span class="muted">23 to go</span></div><div class="bar"><i style="width:18%"></i></div></div>
+      ${aisle('carrot','var(--green)','Fruit &amp; Veg',4)}
+      <div class="group">${newItem('on','Blueberries','3 handfuls','Overnight oats')}${newItem('','Onion','10','Bolognese, Fajitas, Chilli')}</div>
+    </div>
+    <div class="scrim"></div>
+    <div class="menu"><div class="row"><span>Send to Sam<span class="sub">WhatsApp</span></span>${I('message-circle')}</div><div class="row">Share…${I('share')}</div></div>` + tabbar(2, 23));
+
+  document.getElementById('p-settings').innerHTML =
+    fig('Settings','Each row opens its own page.', settingsRoot, true) +
+    fig('Shopping Reminder','Tap the first row.', reminder, true) +
+    fig('Sharing','The quick-send contact and what to include.', sharing, true) +
+    fig('Typing a number','The keypad gets a Done key. Tapping outside or scrolling also hides it.', typing, true) +
+    fig('Share button','With a contact saved. Without one, the iOS share sheet opens straight away.', shareMenu, true);
+
+  if (window.lucide) window.lucide.createIcons();
+
+  /* ---------- Interactions ---------- */
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const restart = (el, cls) => { if (reduce) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+
+  document.querySelectorAll('.dice-btn').forEach(btn => btn.addEventListener('click', () => {
+    const scope = btn.dataset.dice;
+    document.querySelectorAll(`.dice-btn[data-dice="${scope}"] svg`).forEach(svg => restart(svg, 'bounce'));
+    document.querySelectorAll(`[data-rows="${scope}"] .row.r2`).forEach((row, i) => { row.style.animationDelay = (i * 60) + 'ms'; restart(row, 'rise'); });
+  }));
+
+  const live = document.querySelector('[data-shop="live"]');
+  const update = () => {
+    const ticked = 4 + live.querySelectorAll('.item.tap.on').length;
+    live.querySelector('[data-ticked]').textContent = ticked;
+    live.querySelector('[data-left]').textContent = 28 - ticked;
+    live.querySelector('[data-bar]').style.width = Math.round(ticked / 28 * 100) + '%';
+  };
+  live.querySelectorAll('.item.tap').forEach(row => {
+    const toggle = () => {
+      const on = row.classList.toggle('on');
+      row.setAttribute('aria-pressed', on);
+      if (on) restart(row.querySelector('.check'), 'pop');
+      update();
+    };
+    row.addEventListener('click', toggle);
+    row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  });
+  update();
+
+  /* ---------- Phone appearance ---------- */
+  const main = document.getElementById('main');
+  const setMode = mode => {
+    main.dataset.phones = mode;
+    document.getElementById('mode-light').setAttribute('aria-pressed', mode === 'light');
+    document.getElementById('mode-dark').setAttribute('aria-pressed', mode === 'dark');
+    try { localStorage.setItem('phones', mode); } catch (e) {}
+  };
+  document.getElementById('mode-light').addEventListener('click', () => setMode('light'));
+  document.getElementById('mode-dark').addEventListener('click', () => setMode('dark'));
+  try { const saved = localStorage.getItem('phones'); if (saved === 'dark' || saved === 'light') setMode(saved); } catch (e) {}
+})();
+</script>
