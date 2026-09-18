@@ -69,6 +69,7 @@ struct IngredientDetailView: View {
                 }
             }
         }
+        .keyboardDismissible()
         .navigationTitle(ingredient.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

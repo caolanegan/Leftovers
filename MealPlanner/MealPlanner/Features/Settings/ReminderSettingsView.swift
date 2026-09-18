@@ -3,15 +3,18 @@ import UIKit
 import UserNotifications
 import os
 
-private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlanner", category: "ReminderSection")
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MealPlanner", category: "ReminderSettingsView")
 
 private let weekdayOptions: [(name: String, value: Int)] = [
     ("Monday", 2), ("Tuesday", 3), ("Wednesday", 4), ("Thursday", 5),
     ("Friday", 6), ("Saturday", 7), ("Sunday", 1),
 ]
 
-/// §10.12 item 1 / §11.
-struct ReminderSection: View {
+/// §10.12 page 1 / §11. Was a `Section` embedded directly in `SettingsView`'s
+/// `Form` (M11); v1.6 moves it onto its own page, reached from the root's
+/// "Shopping Reminder" row — same behaviour and storage, only its location
+/// changes.
+struct ReminderSettingsView: View {
     @AppStorage("reminder.enabled") private var enabled = false
     @AppStorage("reminder.weekday") private var weekday = 1
     @AppStorage("reminder.minutes") private var minutes = 1080
@@ -26,25 +29,26 @@ struct ReminderSection: View {
     private let calendar = WeekMath.appCalendar
 
     var body: some View {
-        Section {
-            Toggle("Reminder", isOn: $enabled)
-                .onChange(of: enabled) { _, newValue in handleToggle(newValue) }
-            if enabled {
-                Picker("Day", selection: $weekday) {
-                    ForEach(weekdayOptions, id: \.value) { option in
-                        Text(option.name).tag(option.value)
+        Form {
+            Section {
+                Toggle("Reminder", isOn: $enabled)
+                    .onChange(of: enabled) { _, newValue in handleToggle(newValue) }
+                if enabled {
+                    Picker("Day", selection: $weekday) {
+                        ForEach(weekdayOptions, id: \.value) { option in
+                            Text(option.name).tag(option.value)
+                        }
                     }
+                    .onChange(of: weekday) { _, _ in reschedule() }
+                    DatePicker("Time", selection: timeBinding, displayedComponents: .hourAndMinute)
                 }
-                .onChange(of: weekday) { _, _ in reschedule() }
-                DatePicker("Time", selection: timeBinding, displayedComponents: .hourAndMinute)
-            }
-        } header: {
-            Text("Shopping Reminder")
-        } footer: {
-            if enabled {
-                Text(footerText)
+            } footer: {
+                if enabled {
+                    Text(footerText)
+                }
             }
         }
+        .navigationTitle("Shopping Reminder")
         .task { await refreshStatus() }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -128,7 +132,7 @@ struct ReminderSection: View {
 
     /// Display-only: updates the footer's permission warning. Rescheduling
     /// on `scenePhase == .active` is `RootTabView`'s job (§9.2) — it runs
-    /// whether or not Settings is open. This only reacts to the user's own
+    /// whether or not this page is open. This only reacts to the user's own
     /// actions (toggle on, day/time change), so the two never both write.
     private func refreshStatus() async {
         authorizationStatus = await scheduler.authorizationStatus()
@@ -138,10 +142,18 @@ struct ReminderSection: View {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         openURL(url)
     }
+
+    /// The Settings root row's trailing value: "Off", or e.g. "Sun 18:00".
+    static func trailingValue(enabled: Bool, weekday: Int, minutes: Int) -> String {
+        guard enabled else { return "Off" }
+        let dayNames = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        let dayName = (1...7).contains(weekday) ? dayNames[weekday] : "Sun"
+        return String(format: "%@ %02d:%02d", dayName, minutes / 60, minutes % 60)
+    }
 }
 
 #Preview {
-    Form {
-        ReminderSection()
+    NavigationStack {
+        ReminderSettingsView()
     }
 }

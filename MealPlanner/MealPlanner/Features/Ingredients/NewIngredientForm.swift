@@ -44,6 +44,7 @@ struct NewIngredientForm: View {
                 }
             }
         }
+        .keyboardDismissible()
         .navigationTitle("New Ingredient")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

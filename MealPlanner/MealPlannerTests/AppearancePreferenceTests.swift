@@ -1,6 +1,6 @@
 import SwiftUI
 import Testing
-@testable import MealPlanner
+@testable import Leftovers
 
 @MainActor
 struct AppearancePreferenceTests {

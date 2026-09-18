@@ -87,6 +87,7 @@ struct RecipeIngredientForm: View {
                 TextField("Note", text: $note, prompt: Text("e.g. finely chopped"))
             }
         }
+        .keyboardDismissible()
         .navigationTitle(ingredient.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

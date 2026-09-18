@@ -49,6 +49,7 @@ struct MealEditorView: View {
                 methodSection
                 notesSection
             }
+            .keyboardDismissible()
             .navigationTitle(meal == nil ? "New Meal" : "Edit Meal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

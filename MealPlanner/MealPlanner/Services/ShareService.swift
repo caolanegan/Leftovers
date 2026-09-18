@@ -17,12 +17,6 @@ enum ShareService {
         presenter.present(activityVC, animated: true)
     }
 
-    static func makeTextFile(text: String, fileName: String) throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-        try text.write(to: url, atomically: true, encoding: .utf8)
-        return url
-    }
-
     /// The key window of the foreground-active `UIWindowScene`, then walked
     /// down through `presentedViewController` (§12.3).
     private static func topMostViewController() -> UIViewController? {

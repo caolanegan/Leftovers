@@ -73,6 +73,7 @@ struct AddShoppingItemSheet: View {
                     }
                 }
             }
+            .keyboardDismissible()
             .navigationTitle(isEditing ? "Edit Added Item" : "Add Item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

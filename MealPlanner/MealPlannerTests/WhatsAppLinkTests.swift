@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import MealPlanner
+@testable import Leftovers
 
 @MainActor
 struct WhatsAppLinkTests {

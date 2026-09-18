@@ -229,24 +229,22 @@ private struct ShoppingListContentView: View {
             // Sharing is still allowed for an ended week's frozen list (§10.10);
             // it just never updates `lastSharedSignature` (`markShared` no-ops).
             ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button("Share List…", action: shareList)
-                        .disabled(!exportable)
-                    Button("Send via WhatsApp") { sendWhatsApp(phoneDigits: nil) }
-                        .disabled(!exportable)
-                    if let contact = whatsAppContact {
-                        Button("Send to \(contact.name) on WhatsApp") { sendWhatsApp(phoneDigits: contact.digits) }
-                            .disabled(!exportable)
+                if let contact = whatsAppContact {
+                    Menu {
+                        Button("Send to \(contact.name)") { sendWhatsApp(phoneDigits: contact.digits) }
+                        Button("Share…", action: shareList)
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
                     }
-                    Button("Save as Text File…", action: saveTextFile)
-                        .disabled(!exportable)
-                    Divider()
-                    Toggle("Include Ticked Items", isOn: $includeChecked)
-                    Toggle("Include Meal Plan", isOn: $includeMealPlan)
-                } label: {
-                    Image(systemName: "square.and.arrow.up")
+                    .disabled(!exportable)
+                    .accessibilityLabel("Share")
+                } else {
+                    Button(action: shareList) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .disabled(!exportable)
+                    .accessibilityLabel("Share")
                 }
-                .accessibilityLabel("Share")
             }
             if !isReadOnly {
                 ToolbarItem(placement: .primaryAction) {
@@ -334,20 +332,6 @@ private struct ShoppingListContentView: View {
         guard let url = WhatsAppLink.url(text: exportText(data), phoneDigits: phoneDigits) else { return }
         openURL(url) { accepted in
             if accepted { markShared(signature: currentSignature(data)) }
-        }
-    }
-
-    private func saveTextFile() {
-        let data = currentListData()
-        do {
-            let fileName = "Shopping list \(weekID).txt"
-            let fileURL = try ShareService.makeTextFile(text: exportText(data), fileName: fileName)
-            ShareService.present(items: [fileURL]) { completed in
-                if completed { markShared(signature: currentSignature(data)) }
-            }
-        } catch {
-            logger.error("Failed to create text file: \(error, privacy: .public)")
-            errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
     }
 

@@ -2,7 +2,7 @@ import Testing
 import UIKit
 import ImageIO
 import UniformTypeIdentifiers
-@testable import MealPlanner
+@testable import Leftovers
 
 @MainActor
 struct ImageProcessorTests {

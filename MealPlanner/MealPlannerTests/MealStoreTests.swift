@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import SwiftData
-@testable import MealPlanner
+@testable import Leftovers
 
 @MainActor
 struct MealStoreTests {

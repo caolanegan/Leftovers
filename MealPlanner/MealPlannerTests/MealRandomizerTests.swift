@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import MealPlanner
+@testable import Leftovers
 
 /// Deterministic RNG for reproducible tests (§7.6 "Required tests (seeded `SplitMix64`)").
 private struct SplitMix64: RandomNumberGenerator {

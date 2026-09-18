@@ -12,6 +12,9 @@ enum AppRoute: Hashable {
     case meal(Meal)
     case archivedSlot(MealSlot)
     case appearanceSettings
+    case reminderSettings
+    case sharingSettings
+    case about
 
     /// Hand-written rather than derived: comparing by `id` (not the models'
     /// own equality) keeps this independent of whichever file happens to
@@ -23,6 +26,9 @@ enum AppRoute: Hashable {
         case (.meal(let a), .meal(let b)): a.id == b.id
         case (.archivedSlot(let a), .archivedSlot(let b)): a.id == b.id
         case (.appearanceSettings, .appearanceSettings): true
+        case (.reminderSettings, .reminderSettings): true
+        case (.sharingSettings, .sharingSettings): true
+        case (.about, .about): true
         default: false
         }
     }
@@ -42,6 +48,12 @@ enum AppRoute: Hashable {
             hasher.combine(slot.id)
         case .appearanceSettings:
             hasher.combine(4)
+        case .reminderSettings:
+            hasher.combine(5)
+        case .sharingSettings:
+            hasher.combine(6)
+        case .about:
+            hasher.combine(7)
         }
     }
 }
@@ -64,6 +76,12 @@ extension View {
                 ArchivedSlotDetailView(slot: slot)
             case .appearanceSettings:
                 AppearanceSettingsView()
+            case .reminderSettings:
+                ReminderSettingsView()
+            case .sharingSettings:
+                SharingSettingsView()
+            case .about:
+                AboutView()
             }
         }
     }

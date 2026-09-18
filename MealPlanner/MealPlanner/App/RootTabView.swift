@@ -73,8 +73,8 @@ struct RootTabView: View {
 
     /// If the reminder is enabled and still authorised, reschedule it (in
     /// case the system dropped the pending request). If permission has been
-    /// revoked, leave the stored toggle alone — `ReminderSection`'s footer
-    /// shows the warning when the user looks at Settings.
+    /// revoked, leave the stored toggle alone — `ReminderSettingsView`'s
+    /// footer shows the warning when the user looks at its page.
     private func resyncReminder() async {
         guard reminderEnabled else { return }
         let scheduler = NotificationScheduler()
