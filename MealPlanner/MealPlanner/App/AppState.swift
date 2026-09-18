@@ -15,4 +15,9 @@ final class AppState {
     /// `.onPreferenceChange` — verified missing in the Simulator. Routing it
     /// through this `@Observable` instead crosses that boundary correctly.
     var shoppingBadgeCount: Int = 0
+    /// Bumped whenever a randomise or shuffle succeeds, so every dice icon
+    /// across the app (`RandomizeMenu`, day-header, row Shuffle, the picker's
+    /// Shuffle button, the blank-week card) can bounce from one shared
+    /// trigger (§13.5 "Randomising"), without each view needing its own.
+    var diceBounceTick: Int = 0
 }

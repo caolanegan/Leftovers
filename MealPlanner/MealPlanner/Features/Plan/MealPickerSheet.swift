@@ -24,6 +24,8 @@ struct MealPickerSheet: View {
     @State private var previousWeekMealIDs: Set<UUID> = []
     @State private var pendingLeftoverPrompt: LeftoverOrCookAgainPrompt?
     @State private var pendingDependentPrompt: DependentLeftoversPrompt?
+    @Environment(AppState.self) private var appState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var position: PlanPosition { PlanPosition(weekID: weekID, dayIndex: dayIndex, mealType: mealType) }
 
@@ -46,7 +48,12 @@ struct MealPickerSheet: View {
                     Button {
                         shuffle()
                     } label: {
-                        Label("Pick a Random \(mealType.displayName)", systemImage: "dice")
+                        Label {
+                            Text("Pick a Random \(mealType.displayName)")
+                        } icon: {
+                            Image(systemName: "dice")
+                                .symbolEffect(.bounce, value: reduceMotion ? 0 : appState.diceBounceTick)
+                        }
                     }
                 }
 
@@ -237,6 +244,7 @@ struct MealPickerSheet: View {
         do {
             try WeekPlanService(context: modelContext).assign(meal, at: position, leftoversOf: nil, dependents: dependents)
             UINotificationFeedbackGenerator().notificationOccurred(.success)
+            appState.diceBounceTick += 1
             dismiss()
         } catch {
             logger.error("Failed to shuffle: \(error, privacy: .public)")
@@ -276,5 +284,6 @@ struct MealPickerSheet: View {
         mealType: .dinner,
         currentMeal: nil
     )
+    .environment(AppState())
     .modelContainer(PreviewContainer.shared)
 }

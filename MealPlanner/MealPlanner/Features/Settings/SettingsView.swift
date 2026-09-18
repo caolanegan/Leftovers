@@ -24,37 +24,37 @@ struct SettingsView: View {
                     LabeledContent {
                         Text(reminderTrailingValue)
                     } label: {
-                        Label("Shopping Reminder", systemImage: "bell")
+                        Label { Text("Shopping Reminder") } icon: { SettingsIconTile(systemImage: "bell", tint: .red) }
                     }
                 }
                 NavigationLink(value: AppRoute.sharingSettings) {
                     LabeledContent {
                         Text(sharingTrailingValue)
                     } label: {
-                        Label("Sharing", systemImage: "square.and.arrow.up")
+                        Label { Text("Sharing") } icon: { SettingsIconTile(systemImage: "square.and.arrow.up", tint: .green) }
                     }
                 }
                 NavigationLink(value: AppRoute.appearanceSettings) {
                     LabeledContent {
                         Text(AppearancePreference.resolved(fromRawValue: appearanceRawValue).displayName)
                     } label: {
-                        Label("Appearance", systemImage: "circle.lefthalf.filled")
+                        Label { Text("Appearance") } icon: { SettingsIconTile(systemImage: "circle.lefthalf.filled", tint: .indigo) }
                     }
                 }
             }
             Section("Library") {
                 NavigationLink(value: AppRoute.ingredientLibrary) {
-                    Label("Ingredients", systemImage: "carrot")
+                    Label { Text("Ingredients") } icon: { SettingsIconTile(systemImage: "carrot", tint: .orange) }
                 }
                 Button {
                     addSampleMeals()
                 } label: {
-                    Label("Add Example Meals", systemImage: "sparkles")
+                    Label { Text("Add Example Meals") } icon: { SettingsIconTile(systemImage: "sparkles", tint: .purple) }
                 }
             }
             Section("About") {
                 NavigationLink(value: AppRoute.about) {
-                    Label("About", systemImage: "info")
+                    Label { Text("About") } icon: { SettingsIconTile(systemImage: "info", tint: .gray) }
                 }
             }
         }
@@ -99,6 +99,21 @@ struct SettingsView: View {
             logger.error("Failed to add sample meals: \(error, privacy: .public)")
             errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."
         }
+    }
+}
+
+/// §13.5 "Settings": each row icon in a solid rounded tile in its colour,
+/// with a white glyph, like the iPhone's own Settings app (§10.12).
+private struct SettingsIconTile: View {
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .font(.callout)
+            .foregroundStyle(.white)
+            .frame(width: 29, height: 29)
+            .background(tint, in: RoundedRectangle(cornerRadius: 7))
     }
 }
 

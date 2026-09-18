@@ -43,6 +43,7 @@ private struct WeekPlanContentView: View {
     @State private var pendingDependentRemoval: DependentLeftoversPrompt?
     @State private var infoMessage: String?
     @State private var errorMessage: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(weekID: String) {
         self.weekID = weekID
@@ -58,6 +59,29 @@ private struct WeekPlanContentView: View {
         guard let plan else { return 0 }
         if plan.isArchived { return (plan.slots ?? []).count }
         return (plan.slots ?? []).filter { $0.meal != nil }.count
+    }
+
+    /// §13.5 Tonight card: only on the current week, only when today's
+    /// dinner is planned. Reads straight off `plan`/`context`, already
+    /// loaded for the row list — no extra fetches.
+    private var tonightSlot: MealSlot? {
+        guard weekID == currentWeekID, !isReadOnly else { return nil }
+        let todayIndex = WeekMath.dayIndex(for: .now, calendar: WeekMath.appCalendar)
+        guard let slot = (plan?.slots ?? []).first(where: { $0.dayIndex == todayIndex && $0.mealType == .dinner }), slot.meal != nil else { return nil }
+        return slot
+    }
+
+    private func tonightLeftoverLabel(_ context: PlanWeekContext) -> String? {
+        guard let tonightSlot, let sourceID = tonightSlot.leftoverOfSlotID else { return nil }
+        return context.sourceLabels[sourceID]
+    }
+
+    /// §13.5 Blank week card: an editable week with nothing planned at all.
+    private var showsBlankWeekCard: Bool { !isReadOnly && filledCount == 0 }
+
+    private var blankWeekCardPosition: PlanPosition {
+        let dayIndex = weekID == currentWeekID ? WeekMath.dayIndex(for: .now, calendar: WeekMath.appCalendar) : 0
+        return PlanPosition(weekID: weekID, dayIndex: dayIndex, mealType: .dinner)
     }
 
     /// Built once per render (not once per row — §10.1 perf) so `DaySection`
@@ -89,6 +113,21 @@ private struct WeekPlanContentView: View {
                 Section {
                     Label("This week has ended. It's kept as a record and can't be changed.", systemImage: "lock.fill")
                         .foregroundStyle(.secondary)
+                }
+            }
+
+            if let tonightSlot, let meal = tonightSlot.meal {
+                Section {
+                    TonightCard(meal: meal, isLeftovers: tonightSlot.isLeftovers, leftoverLabel: tonightLeftoverLabel(context))
+                }
+            }
+
+            if showsBlankWeekCard {
+                Section {
+                    BlankWeekCard(
+                        onRandomizeWeek: { randomizeScopeTapped(.wholeWeek) },
+                        onPickAMeal: { pickerPosition = blankWeekCardPosition }
+                    )
                 }
             }
 
@@ -325,8 +364,11 @@ private struct WeekPlanContentView: View {
 
     private func performRandomize(targets: [SlotKey], mode: RandomizeMode) {
         do {
-            let outcome = try WeekPlanService(context: modelContext).randomize(weekID: weekID, slots: targets, mode: mode)
+            let outcome = try withAnimation(reduceMotion ? nil : .default) {
+                try WeekPlanService(context: modelContext).randomize(weekID: weekID, slots: targets, mode: mode)
+            }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
+            appState.diceBounceTick += 1
             if !outcome.skippedTypes.isEmpty {
                 infoMessage = MealRandomizer.skippedCandidatesMessage(for: outcome.skippedTypes)
             } else if outcome.assigned == 0 {
@@ -363,8 +405,11 @@ private struct WeekPlanContentView: View {
 
     private func finishShuffle(_ meal: Meal, at position: PlanPosition, dependents: DependentLeftoversAction) {
         do {
-            try WeekPlanService(context: modelContext).assign(meal, at: position, leftoversOf: nil, dependents: dependents)
+            try withAnimation(reduceMotion ? nil : .default) {
+                try WeekPlanService(context: modelContext).assign(meal, at: position, leftoversOf: nil, dependents: dependents)
+            }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
+            appState.diceBounceTick += 1
         } catch {
             logger.error("Failed to shuffle: \(error, privacy: .public)")
             errorMessage = (error as? AppError)?.errorDescription ?? "Something went wrong. Please try again."

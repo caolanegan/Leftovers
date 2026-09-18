@@ -18,6 +18,9 @@ struct DaySection: View {
     let onAddLeftovers: (_ from: PlanPosition, _ to: PlanPosition) -> Void
     let onRandomizeDay: (Int) -> Void
 
+    @Environment(AppState.self) private var appState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Section {
             ForEach(MealType.allCases.sorted()) { mealType in
@@ -41,16 +44,31 @@ struct DaySection: View {
                     onLeftoversForTomorrowLunch: { onAddLeftovers(position, tomorrowPosition(mealType: .lunch)) },
                     onLeftoversForTomorrowDinner: { onAddLeftovers(position, tomorrowPosition(mealType: .dinner)) }
                 )
+                // §13.5: today's section gets a green accent outline; `List`
+                // doesn't draw a clean border around a whole `Section`
+                // (M6's decision note hit the same limit with a safe-area
+                // overlay), so a faint per-row accent tint is the fallback
+                // the spec itself allows.
+                .listRowBackground(isToday ? Color.accentColor.opacity(0.08) : nil)
             }
         } header: {
             HStack {
                 Text(headerText)
+                if isToday {
+                    Text("TODAY")
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.accentColor, in: Capsule())
+                        .foregroundStyle(.white)
+                }
                 if !isReadOnly {
                     Spacer()
                     Button {
                         onRandomizeDay(dayIndex)
                     } label: {
                         Image(systemName: "dice")
+                            .symbolEffect(.bounce, value: reduceMotion ? 0 : appState.diceBounceTick)
                     }
                     .accessibilityLabel("Randomise \(fullDayName)")
                 }
@@ -67,10 +85,11 @@ struct DaySection: View {
         return formatted(date, format: "EEEE")
     }
 
+    /// The "TODAY" tag (§13.5) is a separate capsule view now, not appended
+    /// text — kept plain uppercase weekday/date for every day.
     private var headerText: String {
         guard let date else { return "" }
-        let base = formatted(date, format: "EEEE d MMM").uppercased()
-        return isToday ? "\(base) · TODAY" : base
+        return formatted(date, format: "EEEE d MMM").uppercased()
     }
 
     private func formatted(_ date: Date, format: String) -> String {

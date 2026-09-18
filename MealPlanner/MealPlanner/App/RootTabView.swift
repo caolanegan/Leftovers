@@ -48,6 +48,9 @@ struct RootTabView: View {
         // lazily, so the badge would stay 0 until the user opens that tab at
         // least once. A `.background` on the `TabView` itself is always built.
         .background(ShoppingBadgeReporter(weekID: appState.selectedWeekID).id(appState.selectedWeekID))
+        // §13.5: applied once, at the root, so every tab, sheet, alert and
+        // confirmation dialog presented from within this hierarchy inherits it.
+        .fontDesign(.rounded)
         .task { onBecomeActive() }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active { onBecomeActive() }

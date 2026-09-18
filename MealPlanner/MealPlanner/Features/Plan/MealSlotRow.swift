@@ -22,16 +22,6 @@ struct MealSlotRow: View {
     let onLeftoversForTomorrowLunch: () -> Void
     let onLeftoversForTomorrowDinner: () -> Void
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    /// Wide enough for "Breakfast" (the longest meal type name) plus its icon
-    /// at the current Dynamic Type size, so every row's name column lines up
-    /// without wrapping (§13.2).
-    @ScaledMetric(relativeTo: .body) private var mealTypeColumnWidth: CGFloat = 132
-    /// Fixed so the three meal types' differently-shaped SF Symbols
-    /// (sunrise/sun.max/moon.stars) don't push "Breakfast"/"Lunch"/"Dinner"
-    /// to slightly different x-offsets across rows.
-    @ScaledMetric(relativeTo: .body) private var mealTypeIconWidth: CGFloat = 20
-
     private var slot: MealSlot? {
         (plan?.slots ?? []).first { $0.dayIndex == dayIndex && $0.mealType == mealType }
     }
@@ -103,18 +93,12 @@ struct MealSlotRow: View {
         }
     }
 
-    /// A manual icon + text pairing rather than `Label`: `Label` can drop its
-    /// title entirely (icon-only) when squeezed into a frame narrower than
-    /// its ideal width, which a plain `HStack` never does.
+    /// The meal type caption (bold, in its tint, with its symbol) that sits
+    /// above the meal name (§13.5 "Rows").
     private var mealTypeLabel: some View {
-        HStack(spacing: 4) {
-            Image(systemName: mealType.symbolName)
-                .frame(width: mealTypeIconWidth)
-            Text(mealType.displayName)
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-        }
-        .foregroundStyle(.secondary)
+        Label(mealType.displayName, systemImage: mealType.symbolName)
+            .font(.caption.weight(.bold))
+            .foregroundStyle(mealType.tint)
     }
 
     @ViewBuilder
@@ -122,6 +106,7 @@ struct MealSlotRow: View {
         if let mealName {
             Text(mealName)
                 .foregroundStyle(.primary)
+                .contentTransition(.opacity)
         } else if isReadOnly {
             Text("—")
                 .foregroundStyle(.secondary)
@@ -140,40 +125,45 @@ struct MealSlotRow: View {
         }
     }
 
-    /// Indented to start under the meal name column (§10.1's mockup), not
-    /// under the meal-type icon — except at accessibility sizes, where
-    /// `rowContent` stacks the meal-type label above rather than beside,
-    /// so there's no column to align under.
     @ViewBuilder
     private var leftoversCaption: some View {
         if isLeftovers, let leftoverLabel {
             Label("Leftovers · \(leftoverLabel)", systemImage: "arrow.uturn.backward")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(.leading, dynamicTypeSize.isAccessibilitySize ? 0 : mealTypeColumnWidth)
+        }
+    }
+
+    /// A 32 pt photo, or (empty, editable slot only) a dashed rounded square
+    /// with a `plus` in the meal type's tint (§13.5 "Rows"). Read-only rows
+    /// never read `slot.meal`'s live photo (§6.7) — a filled archived row
+    /// falls back to `MealThumbnail`'s own placeholder icon.
+    @ViewBuilder
+    private var leadingThumbnail: some View {
+        if isFilled {
+            MealThumbnail(thumbnailData: isReadOnly ? nil : slot?.meal?.thumbnailData, mealName: mealName ?? "", size: 32)
+        } else if !isReadOnly {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(mealType.tint, style: StrokeStyle(lineWidth: 1.5, dash: [4]))
+                .frame(width: 32, height: 32)
+                .overlay {
+                    Image(systemName: "plus")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(mealType.tint)
+                }
         }
     }
 
     private var rowContent: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if dynamicTypeSize.isAccessibilitySize {
+        HStack(spacing: 12) {
+            leadingThumbnail
+            VStack(alignment: .leading, spacing: 2) {
                 mealTypeLabel
-                HStack {
-                    nameOrPlaceholder
-                    Spacer()
-                    trailingChevron
-                }
-            } else {
-                HStack {
-                    mealTypeLabel
-                        .frame(width: mealTypeColumnWidth, alignment: .leading)
-                    nameOrPlaceholder
-                    Spacer()
-                    trailingChevron
-                }
+                nameOrPlaceholder
+                leftoversCaption
             }
-
-            leftoversCaption
+            Spacer()
+            trailingChevron
         }
         .contentShape(Rectangle())
     }

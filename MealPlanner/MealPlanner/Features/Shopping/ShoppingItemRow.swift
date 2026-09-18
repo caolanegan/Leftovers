@@ -10,6 +10,7 @@ struct ShoppingItemRow: View {
     let onRemove: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isChecked: Bool {
         if case .checked = status { return true }
@@ -88,6 +89,7 @@ struct ShoppingItemRow: View {
         HStack {
             Image(systemName: iconName)
                 .foregroundStyle(iconColor)
+                .symbolEffect(.bounce, value: reduceMotion ? false : isChecked)
             Text(item.displayName)
                 .foregroundStyle(isChecked ? .secondary : .primary)
                 .strikethrough(isChecked)

@@ -153,6 +153,9 @@ private struct ShoppingListContentView: View {
         let missingArchivedList = isReadOnly && archived == nil
         let showsBanner = showsSharedChangedBanner(data)
         let exportable = hasExportableItems(data)
+        // §13.5: every item `.checked` (not `.needsMore`) on a non-empty,
+        // editable list.
+        let isAllDone = !isReadOnly && !allItems.isEmpty && tickedCount == allItems.count
 
         List {
             if isReadOnly {
@@ -168,11 +171,11 @@ private struct ShoppingListContentView: View {
             }
             if !data.sections.isEmpty {
                 Section {
-                    ProgressView(value: Double(tickedCount), total: Double(allItems.count))
+                    ShoppingProgressCard(tickedCount: tickedCount, totalCount: allItems.count, isAllDone: isAllDone)
                 }
             }
             ForEach(data.sections) { section in
-                Section(section.category.displayName) {
+                Section {
                     ForEach(section.items) { item in
                         ShoppingItemRow(
                             item: item,
@@ -183,10 +186,13 @@ private struct ShoppingListContentView: View {
                             onRemove: { removeManualItem(item) }
                         )
                     }
+                } header: {
+                    AisleHeader(category: section.category, count: section.items.count)
                 }
             }
         }
         .listStyle(.insetGrouped)
+        .sensoryFeedback(trigger: isAllDone) { wasDone, nowDone in (nowDone && !wasDone) ? .success : nil }
         .overlay {
             if missingArchivedList {
                 ContentUnavailableView(
@@ -195,23 +201,28 @@ private struct ShoppingListContentView: View {
                 )
             } else if data.sections.isEmpty, !isReadOnly {
                 if hasNoSlotsOrManualItems {
-                    ContentUnavailableView {
-                        Label("No Meals Planned", systemImage: "cart")
-                    } description: {
-                        Text("Plan some meals to build a shopping list, or add an item by hand.")
-                    } actions: {
-                        Button("Go to Plan") { appState.selectedTab = .plan }
-                        Button("Add Item") { showingIngredientPicker = true }
-                    }
+                    EmptyStateView(
+                        systemImage: "basket",
+                        title: "Your list is empty, for now",
+                        message: "Plan a few meals and everything you need lands here, sorted by aisle.",
+                        primaryTitle: "Plan Some Meals", primaryAction: { appState.selectedTab = .plan },
+                        secondaryTitle: "Add an Item", secondaryAction: { showingIngredientPicker = true }
+                    )
                 } else {
-                    ContentUnavailableView("Nothing to Buy", systemImage: "cart", description: Text("Nothing planned this week needs shopping for."))
+                    EmptyStateView(
+                        systemImage: "basket",
+                        title: "Nothing to buy this week",
+                        message: "The meals you've planned don't need any shopping."
+                    )
                 }
             }
         }
         .safeAreaInset(edge: .top) {
             WeekNavigator(
                 title: navigatorTitle,
-                subtitle: data.sections.isEmpty ? "" : "\(tickedCount) of \(allItems.count) ticked",
+                // §13.5: the ticked count now lives in `ShoppingProgressCard`,
+                // so it isn't shown twice.
+                subtitle: "",
                 onPrevious: { navigate(by: -1) },
                 onNext: { navigate(by: 1) },
                 onToday: { appState.selectedWeekID = currentWeekID }

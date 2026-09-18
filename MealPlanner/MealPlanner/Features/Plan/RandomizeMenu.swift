@@ -11,6 +11,9 @@ enum RandomizeScope {
 struct RandomizeMenu: View {
     let onSelect: (RandomizeScope) -> Void
 
+    @Environment(AppState.self) private var appState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Menu {
             Button("Randomise Whole Week") { onSelect(.wholeWeek) }
@@ -19,6 +22,7 @@ struct RandomizeMenu: View {
             }
         } label: {
             Image(systemName: "dice")
+                .symbolEffect(.bounce, value: reduceMotion ? 0 : appState.diceBounceTick)
         }
         .accessibilityLabel("Randomise")
     }
@@ -26,4 +30,5 @@ struct RandomizeMenu: View {
 
 #Preview {
     RandomizeMenu(onSelect: { _ in })
+        .environment(AppState())
 }

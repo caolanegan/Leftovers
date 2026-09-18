@@ -73,14 +73,13 @@ struct MealLibraryView: View {
         }
         .overlay {
             if meals.isEmpty {
-                ContentUnavailableView {
-                    Label("No Meals Yet", systemImage: "fork.knife")
-                } description: {
-                    Text("Add your first meal to get started.")
-                } actions: {
-                    Button("Add Meal") { showingNewMeal = true }
-                    Button("Add Example Meals") { addSampleMeals() }
-                }
+                EmptyStateView(
+                    systemImage: "fork.knife",
+                    title: "Your cookbook is empty",
+                    message: "Add a meal you love, or start with a few examples.",
+                    primaryTitle: "Add a Meal", primaryAction: { showingNewMeal = true },
+                    secondaryTitle: "Add Example Meals", secondaryAction: { addSampleMeals() }
+                )
             } else if filtered.isEmpty {
                 ContentUnavailableView.search(text: searchText)
             }
