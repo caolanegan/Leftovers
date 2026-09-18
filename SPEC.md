@@ -176,7 +176,7 @@ dinner-app/
 ├── SPEC.md
 ├── DECISIONS.md                  # created by the implementer
 └── MealPlanner/
-    ├── MealPlanner.xcodeproj
+    ├── Leftovers.xcodeproj       # renamed from MealPlanner.xcodeproj; target and scheme "Leftovers"
     ├── MealPlanner/              # app sources (synchronised folder) — §5.2
     └── MealPlannerTests/         # unit tests (synchronised folder) — §15
 ```
@@ -186,11 +186,11 @@ dinner-app/
 Run these from `dinner-app/MealPlanner/`. Pick a simulator with `xcrun simctl list devices available | grep iPhone`.
 
 ```bash
-xcodebuild -project MealPlanner.xcodeproj -scheme MealPlanner -destination 'platform=iOS Simulator,name=<SIM>' -quiet build
+xcodebuild -project Leftovers.xcodeproj -scheme Leftovers -destination 'platform=iOS Simulator,name=<SIM>' -quiet build
 ```
 
 ```bash
-xcodebuild -project MealPlanner.xcodeproj -scheme MealPlanner -destination 'platform=iOS Simulator,name=<SIM>' -quiet test
+xcodebuild -project Leftovers.xcodeproj -scheme Leftovers -destination 'platform=iOS Simulator,name=<SIM>' -quiet test
 ```
 
 A milestone is done only with **zero errors, zero warnings**, and all tests passing.

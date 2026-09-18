@@ -14,14 +14,16 @@ A native iPhone meal-planning app (SwiftUI + SwiftData, iOS 18+). **`SPEC.md` is
 
 ## Commands
 
+The Xcode project, target, scheme and module are named **Leftovers**; the source folders keep their `MealPlanner/` and `MealPlannerTests/` names. Tests use `@testable import Leftovers`.
+
 Run from `MealPlanner/`. Find a simulator with `xcrun simctl list devices available | grep iPhone`.
 
 ```bash
-xcodebuild -project MealPlanner.xcodeproj -scheme MealPlanner -destination 'platform=iOS Simulator,name=<SIM>' -quiet build
+xcodebuild -project Leftovers.xcodeproj -scheme Leftovers -destination 'platform=iOS Simulator,name=<SIM>' -quiet build
 ```
 
 ```bash
-xcodebuild -project MealPlanner.xcodeproj -scheme MealPlanner -destination 'platform=iOS Simulator,name=<SIM>' -quiet test
+xcodebuild -project Leftovers.xcodeproj -scheme Leftovers -destination 'platform=iOS Simulator,name=<SIM>' -quiet test
 ```
 
 ## Hard rules
