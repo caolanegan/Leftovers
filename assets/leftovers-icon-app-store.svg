@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Leftovers app icon</title>
+  <desc>Lime background with a dark green rounded L and leaf, drawn entirely as vector paths.</desc>
+  <path fill="#A3D66B" d="M0 0H1024V1024H0Z"/>
+  <g fill="#003D24">
+    <path d="M320 194 C259 194 210 243 210 303 V737 C210 799 255 848 320 848 H708 C760 848 800 808 800 757 C800 706 760 667 710 667 H492 C449 667 436 650 435 609 L431 303 C431 243 382 194 320 194 Z"/>
+    <path d="M475 632 C467 458 584 357 800 350 C800 553 712 635 475 632 Z"/>
+  </g>
+</svg>
