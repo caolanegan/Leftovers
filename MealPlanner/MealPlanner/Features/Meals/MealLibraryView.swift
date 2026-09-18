@@ -128,7 +128,7 @@ struct MealLibraryView: View {
         } message: {
             Text(pendingDeleteMessage)
         }
-        .sensoryFeedback(.warning, trigger: pendingDelete != nil)
+        .sensoryFeedback(trigger: pendingDelete != nil) { _, shown in shown ? .warning : nil }
         .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {

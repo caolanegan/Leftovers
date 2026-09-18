@@ -69,7 +69,7 @@ struct MealEditorView: View {
                 Button("Discard Changes", role: .destructive) { dismiss() }
                 Button("Keep Editing", role: .cancel) {}
             }
-            .sensoryFeedback(.warning, trigger: showingDiscardConfirmation)
+            .sensoryFeedback(trigger: showingDiscardConfirmation) { _, shown in shown ? .warning : nil }
             .sheet(isPresented: $showingAddIngredient) {
                 IngredientPickerSheet(
                     recipeCompletion: .init(

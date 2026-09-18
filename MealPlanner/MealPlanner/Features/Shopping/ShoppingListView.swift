@@ -277,7 +277,7 @@ private struct ShoppingListContentView: View {
         } message: {
             Text("This unticks every item on this week's list.")
         }
-        .sensoryFeedback(.warning, trigger: pendingUntickAll)
+        .sensoryFeedback(trigger: pendingUntickAll) { _, shown in shown ? .warning : nil }
         .task(id: weekID) {
             guard isReadOnly, plan?.isArchived != true else { return }
             do {

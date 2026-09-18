@@ -92,7 +92,7 @@ struct IngredientDetailView: View {
         } message: {
             Text(mergeDialogMessage)
         }
-        .sensoryFeedback(.warning, trigger: mergeTarget != nil)
+        .sensoryFeedback(trigger: mergeTarget != nil) { _, shown in shown ? .warning : nil }
         .confirmationDialog(
             "Delete Ingredient?",
             isPresented: $showingDeleteConfirmation,
@@ -103,7 +103,7 @@ struct IngredientDetailView: View {
         } message: {
             Text("Delete \"\(ingredient.name)\"? This can't be undone.")
         }
-        .sensoryFeedback(.warning, trigger: showingDeleteConfirmation)
+        .sensoryFeedback(trigger: showingDeleteConfirmation) { _, shown in shown ? .warning : nil }
         .alert(
             duplicateAlertTitle,
             isPresented: Binding(get: { duplicateName != nil }, set: { if !$0 { duplicateName = nil } })

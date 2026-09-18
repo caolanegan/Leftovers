@@ -157,7 +157,7 @@ private struct WeekPlanContentView: View {
         } message: {
             Text(clearWeekMessage)
         }
-        .sensoryFeedback(.warning, trigger: pendingClearWeek)
+        .sensoryFeedback(trigger: pendingClearWeek) { _, shown in shown ? .warning : nil }
         .confirmationDialog(
             "Copy Meals",
             isPresented: Binding(get: { pendingCopy != nil }, set: { if !$0 { pendingCopy = nil } }),
@@ -170,7 +170,7 @@ private struct WeekPlanContentView: View {
         } message: { _ in
             Text("Fill Empty Meals keeps what's already planned. Replace This Week removes it first.")
         }
-        .sensoryFeedback(.warning, trigger: pendingCopy != nil)
+        .sensoryFeedback(trigger: pendingCopy != nil) { _, shown in shown ? .warning : nil }
         .confirmationDialog(
             pendingRandomize?.title ?? "",
             isPresented: Binding(get: { pendingRandomize != nil }, set: { if !$0 { pendingRandomize = nil } }),
@@ -183,7 +183,7 @@ private struct WeekPlanContentView: View {
         } message: { request in
             Text(randomizeMessage(hasDependents: request.hasDependents))
         }
-        .sensoryFeedback(.warning, trigger: pendingRandomize != nil)
+        .sensoryFeedback(trigger: pendingRandomize != nil) { _, shown in shown ? .warning : nil }
         .dependentLeftoversDialog($pendingDependentRemoval)
         .task(id: weekID) {
             guard isReadOnly, plan?.isArchived != true else { return }

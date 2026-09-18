@@ -73,6 +73,6 @@ extension View {
                 Text(value.message)
             }
         }
-        .sensoryFeedback(.warning, trigger: prompt.wrappedValue != nil)
+        .sensoryFeedback(trigger: prompt.wrappedValue != nil) { _, shown in shown ? .warning : nil }
     }
 }

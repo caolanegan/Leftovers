@@ -103,7 +103,7 @@ struct IngredientLibraryView: View {
         } message: {
             Text(mergeDialogMessage)
         }
-        .sensoryFeedback(.warning, trigger: mergeTarget != nil)
+        .sensoryFeedback(trigger: mergeTarget != nil) { _, shown in shown ? .warning : nil }
         .confirmationDialog(
             "Delete Ingredient?",
             isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
@@ -114,7 +114,7 @@ struct IngredientLibraryView: View {
         } message: {
             Text(pendingDeleteMessage)
         }
-        .sensoryFeedback(.warning, trigger: pendingDelete != nil)
+        .sensoryFeedback(trigger: pendingDelete != nil) { _, shown in shown ? .warning : nil }
         .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {

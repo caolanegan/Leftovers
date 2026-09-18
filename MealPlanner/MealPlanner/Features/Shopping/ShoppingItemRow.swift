@@ -9,6 +9,8 @@ struct ShoppingItemRow: View {
     let onEdit: () -> Void
     let onRemove: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     private var isChecked: Bool {
         if case .checked = status { return true }
         return false
@@ -58,16 +60,15 @@ struct ShoppingItemRow: View {
 
     private var rowContent: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Image(systemName: iconName)
-                    .foregroundStyle(iconColor)
-                Text(item.displayName)
-                    .foregroundStyle(isChecked ? .secondary : .primary)
-                    .strikethrough(isChecked)
-                Spacer()
-                Text(QuantityFormatter.format(amounts: item.amounts))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+            if dynamicTypeSize.isAccessibilitySize {
+                nameLabel
+                amountText
+            } else {
+                HStack {
+                    nameLabel
+                    Spacer()
+                    amountText
+                }
             }
             if case .needsMore(let extras) = status {
                 Text("Need \(QuantityFormatter.format(amounts: extras)) more")
@@ -81,6 +82,22 @@ struct ShoppingItemRow: View {
             }
         }
         .contentShape(Rectangle())
+    }
+
+    private var nameLabel: some View {
+        HStack {
+            Image(systemName: iconName)
+                .foregroundStyle(iconColor)
+            Text(item.displayName)
+                .foregroundStyle(isChecked ? .secondary : .primary)
+                .strikethrough(isChecked)
+        }
+    }
+
+    private var amountText: some View {
+        Text(QuantityFormatter.format(amounts: item.amounts))
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
     }
 
     private var iconName: String {
