@@ -1,6 +1,6 @@
 # MealPlanner — Product & Technical Specification
 
-> **Version:** 1.6 (MVP + post-MVP §18) · **Date:** 2026-09-15 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
+> **Version:** 1.7 (MVP + post-MVP §18) · **Date:** 2026-09-15 · **Platform:** iOS (iPhone) · **Stack:** SwiftUI + SwiftData
 >
 > **To the implementing model:** This document is the source of truth. Build the app **one milestone at a time** (§16). Each milestone lists the spec sections it needs and the acceptance criteria that must pass before it counts as done. If something here is ambiguous, pick the simplest option that fits the spec and write it down in `DECISIONS.md`. Do **not** add features that are not in this document.
 
@@ -8,6 +8,7 @@
 
 | Version | Changes |
 |---------|---------|
+| 1.7 | **Personality** (§13.5): rounded type, a colour per meal type and per aisle, photos on the plan, a Tonight card, small animations, an "All done!" card, friendlier empty screens and coloured Settings icons. New milestone **M12.3**. |
 | 1.6 | **Usability fixes:** the keyboard can always be dismissed (§13.4). Settings becomes a list of pages (§10.12). Sharing goes through the iOS share sheet first, with an optional quick-send contact (§10.10, §12.2). New milestone **M12.2**. |
 | 1.5 | **Appearance setting**: System / Light / Dark picker in Settings (§5.2, §10.12, §15.2). New milestone **M12.1**. |
 | 1.4 | The Plan screen no longer scrolls to today when it opens; it always starts at Monday (§10.1). |
@@ -316,6 +317,7 @@ Features/
 Shared/
   PreviewContainer.swift
   KeyboardDismissal.swift            # shared keyboard modifier (§13.4)
+  Palette.swift                      # meal-type and aisle colours and symbols (§13.5)
   DependentLeftoversDialog.swift     # reusable confirmationDialog modifier (§10.3)
   AppearancePreference.swift         # System / Light / Dark (§10.12)
 Resources/
@@ -1211,7 +1213,7 @@ Wireframes show layout intent only. Use standard components.
 **Layout**
 
 - `List(.insetGrouped)` with 7 `DaySection`s, each holding 3 `MealSlotRow`s.
-- Section header: weekday and date in upper case, plus " · TODAY" when it applies. The list always opens at Monday; there's no automatic scroll to today.
+- Section header: weekday and date in upper case, plus " · TODAY" when it applies (a "TODAY" tag from v1.7, §13.5). The list always opens at Monday; there's no automatic scroll to today. From v1.7, rows, the Tonight card and the blank-week card follow §13.5.
 - `WeekNavigator` sits in a `safeAreaInset(edge: .top)` with `.bar` material. Chevrons move ±1 week, and tapping the title jumps to this week. The title is `WeekMath.title · dateRangeText`, with the subtitle "N of 21 meals planned" (leftovers count as planned).
 
 **Read-only (ended) weeks**
@@ -1484,14 +1486,16 @@ Ingredients created here stay in the library even if the meal is cancelled. That
 
 **Structure (v1.6).** The Settings tab root is a short list of rows. Each row opens its own page; nothing is configured on the root itself. Navigation is value-based through `AppRoute`, like every other screen. Each row is a `Label` (SF Symbol + title) with the current value in secondary text on the trailing side.
 
-| Row | Icon | Trailing value | Opens |
+| Row | Icon (tile colour, v1.7) | Trailing value | Opens |
 |-----|------|----------------|-------|
-| Shopping Reminder | `bell` | "Off", or e.g. "Sun 18:00" | `ReminderSettingsView` |
-| Sharing | `square.and.arrow.up` | the quick-send name, or "Not set" | `SharingSettingsView` |
-| Appearance | `circle.lefthalf.filled` | "System" / "Light" / "Dark" | `AppearanceSettingsView` |
-| *Library section:* Ingredients | `carrot` | — | `IngredientLibraryView` |
-| *Library section:* Add Example Meals | `sparkles` | — | an action, not a page: alert "Added N example meals." (or the "already in your library" copy when N = 0) |
-| *About section:* About | `info.circle` | — | `AboutView` |
+| Shopping Reminder | `bell` (`.red`) | "Off", or e.g. "Sun 18:00" | `ReminderSettingsView` |
+| Sharing | `square.and.arrow.up` (`.green`) | the quick-send name, or "Not set" | `SharingSettingsView` |
+| Appearance | `circle.lefthalf.filled` (`.indigo`) | "System" / "Light" / "Dark" | `AppearanceSettingsView` |
+| *Library section:* Ingredients | `carrot` (`.orange`) | — | `IngredientLibraryView` |
+| *Library section:* Add Example Meals | `sparkles` (`.purple`) | — | an action, not a page: alert "Added N example meals." (or the "already in your library" copy when N = 0) |
+| *About section:* About | `info` (`.gray`) | — | `AboutView` |
+
+From v1.7 each icon sits in a small solid rounded square in its colour with a white glyph, like the iPhone's own Settings app (§13.5).
 
 Future settings (including §18's recipe import) are added as their own page in the same way, never inline on the root.
 
@@ -1589,8 +1593,8 @@ To find the top-most view controller: take the key window of the foreground-acti
 
 - Accent colour: `AccentColor` light `#2E7D32`, dark `#66BB6A`.
 - System backgrounds, list and form styles, SF Symbols. No custom bar backgrounds.
-- System text styles only. Photos use `.scaledToFill()` + `.clipped()` and rounded corners (10–12 pt).
-- Haptics: `.selection` when ticking; `.success` after randomise, add to plan or merge; `.warning` on destructive confirmations.
+- System text styles only, with the **rounded** font design (§13.5). Photos use `.scaledToFill()` + `.clipped()` and rounded corners (10–12 pt).
+- Haptics: `.selection` when ticking; `.success` after randomise, add to plan, merge, or when the shopping list becomes all done; `.warning` on destructive confirmations.
 
 ### 13.2 Accessibility (required)
 
@@ -1615,6 +1619,54 @@ The keyboard must never get stuck on screen. On every screen with a text field:
 - **Keyboards without a Return key** (`.phonePad`, `.decimalPad`, `.numberPad`) get a **Done** button in a keyboard toolbar (`ToolbarItemGroup(placement: .keyboard)`).
 
 Build this once as a shared modifier in `Shared/KeyboardDismissal.swift` and apply it everywhere text is typed: the meal editor, recipe line form, new-ingredient form, ingredient detail, Add Shopping Item, the ingredient picker's search, and Settings → Sharing. `.searchable` bars already dismiss themselves and don't need it.
+
+### 13.5 Personality (added in v1.7)
+
+The approved mockups are the reference for everything below. Everything uses standard SwiftUI views, SF Symbols and system colours, and works in light mode, dark mode and at accessibility text sizes. Motion respects Reduce Motion (`@Environment(\.accessibilityReduceMotion)`): with it on, skip the animations but keep the haptics.
+
+**Type.** Apply `.fontDesign(.rounded)` once at the root, so every tab, sheet and alert uses the rounded system font. Keep using text styles.
+
+**Palette (`Shared/Palette.swift`).** SwiftUI extensions, so `Models/` and `Domain/` stay free of SwiftUI:
+
+| Meal type | `tint` |
+|-----------|--------|
+| Breakfast | `.orange` |
+| Lunch | `.teal` |
+| Dinner | `.indigo` |
+
+| Aisle (`ShoppingCategory`) | `symbolName` | `tint` |
+|------|------|------|
+| Fruit & Veg | `carrot` | `.green` |
+| Meat & Fish | `fish` | `.red` |
+| Dairy & Eggs | `cup.and.saucer` | `.blue` |
+| Bakery | `birthday.cake` | `.brown` |
+| Food Cupboard | `cabinet` | `.orange` |
+| Frozen | `snowflake` | `.cyan` |
+| Drinks | `wineglass` | `.purple` |
+| Household | `house` | `.indigo` |
+| Other | `basket` | `.gray` |
+
+Colour always sits next to a label or symbol and is never the only signal (§13.2).
+
+**Plan (§10.1)**
+- **Rows:** a 32 pt `MealThumbnail` on the left, then a stack of the meal type (caption, bold, in its tint, with its symbol) over the meal name, then the chevron. Leftovers keep their "Leftovers · Mon dinner" line under the name. An **empty slot** shows a dashed rounded square with a `plus` in the meal type's tint instead of the photo, and "Add lunch" in secondary text. VoiceOver labels are unchanged.
+- **Tonight card:** only on the current week, and only when today's dinner is planned. It sits above the first day section and shows the dinner's photo (60 pt), "TONIGHT" in the dinner tint with the `moon.stars` symbol, the meal name (headline), and a line with the time and ingredient count (e.g. "30 min · 6 ingredients"; leave out whichever part is zero, and hide the line if both are). For a leftovers dinner the line reads "Leftovers · Mon dinner". Tapping it opens the recipe. It's a read-only shortcut: no swipe actions or context menu.
+- **Today:** the section header shows a small "TODAY" tag (capsule, accent background) in place of " · TODAY", and today's section has a green accent outline. If `List` can't draw the outline cleanly, give today's rows a faint accent tint instead and record it in `DECISIONS.md`.
+- **Blank week card:** on an editable week with no meals planned at all, a card sits above Monday. It has the `dice` symbol in a solid accent tile, the title "A blank week", the text "Nothing planned yet. Roll the dice for a surprise week, or pick your first meal.", and two buttons: **Randomise Week** (prominent; the same action as Randomise Whole Week) and **Pick a Meal** (opens the picker for today's dinner on the current week, otherwise Monday dinner). It disappears as soon as anything is planned. Ended weeks never show it.
+- **Randomising:** the dice symbols bounce (`.symbolEffect(.bounce, value:)`) whenever a randomise runs, and the changed rows animate in with a short fade (`withAnimation`).
+
+**Shopping (§10.10)**
+- **Aisle headers:** a small tinted tile (the aisle's symbol in its tint on a light wash of it), the aisle name in Title Case, and the item count on the trailing side.
+- **Progress card:** "**5** of 28 ticked" on the left and "23 to go" on the right, above a thicker bar (8 pt capsule, accent). The count moves out of the week navigator's subtitle, which becomes empty on this screen, so it isn't shown twice.
+- **Ticking:** the check symbol pops (`.symbolEffect(.bounce)`) when an item is ticked. Rows still don't move.
+- **All done card:** on an editable week whose list isn't empty and where every item is `.checked` (`.needsMore` doesn't count), the progress card becomes a card with a large `checkmark.circle.fill` in the accent, "All done!" (title) and "Everything's ticked off. Enjoy your week of meals." Play the `.success` haptic once as the list becomes all done. It reverts to the progress card as soon as anything is unticked or needs more.
+
+**Empty screens**
+- **Shopping, nothing planned:** a `basket` symbol in a soft accent circle, the title "Your list is empty, for now", the text "Plan a few meals and everything you need lands here, sorted by aisle.", a prominent **Plan Some Meals** button (goes to the Plan tab), and an **Add an Item** button.
+- **Shopping, planned but nothing to buy:** the title "Nothing to buy this week" and the text "The meals you've planned don't need any shopping."
+- **Meals library, empty:** the title "Your cookbook is empty", the text "Add a meal you love, or start with a few examples.", a prominent **Add a Meal** button and an **Add Example Meals** button.
+
+**Settings (§10.12):** each row icon in a solid rounded tile in its colour, with a white glyph.
 
 ---
 
@@ -1687,6 +1739,7 @@ Mark every suite `@MainActor`. Use `#expect` / `#require`, and `@Test(arguments:
 - [ ] Add "Toilet roll 1 pack" by hand → it's under Household with "Added by you", and it's included in the export.
 - [ ] Share → WhatsApp in the share sheet → a real contact (ideally an Android phone) → the message is readable and bold headings show.
 - [ ] Save a quick-send contact in Settings → Sharing → the share button offers "Send to <Name>", which opens that chat directly.
+- [ ] Personality (§13.5): rounded type everywhere; meal-type and aisle colours; photos on plan rows; the Tonight card; the blank-week card; the dice bounce; ticks pop; "All done!" appears and disappears correctly; the new empty screens. All of it in light, dark and the largest text size, and with Reduce Motion on.
 - [ ] On every screen with a text field, the keyboard goes away on tapping outside, on scrolling, and via Return or Done (including the phone number field).
 - [ ] Change the plan after sharing → the banner appears → share again → the banner goes away.
 - [ ] Set the device date forward a week (or use a test build flag) → last week is read-only; editing a meal doesn't change it.
@@ -1842,6 +1895,19 @@ Do this **after M12.1**.
 - [ ] A reminder, contact and export options saved before this milestone still show and still work afterwards.
 - [ ] Share button: no contact → the iOS share sheet opens straight away. Contact saved → "Send to <Name>" and "Share…". The export toggles in Settings change what's shared. `markShared` and the banner still work.
 - [ ] Manual (iPhone): Send to <Name> opens that WhatsApp chat. Share → WhatsApp → pick a chat works.
+
+### M12.3 — Personality (added in v1.7)
+
+Do this **after M12.2**.
+
+**Read:** §13 (all of it, especially §13.5), §10.1, §10.4 (empty state), §10.10, §10.12, §15.2 (the Personality item).
+**Build:** `Shared/Palette.swift`; the rounded font at the root; the Plan rows, Tonight card, TODAY tag and outline, and blank-week card; the dice and row animations; the aisle headers, progress card, tick pop and All done card; the three empty screens; the coloured Settings tiles. No `@Model` changes.
+- [ ] Every screen, sheet and alert uses the rounded font.
+- [ ] Plan rows show the photo (or the dashed "+" when empty) and the coloured meal type. The Tonight card appears only on the current week with today's dinner planned, and opens the recipe. The blank-week card appears only on an empty editable week, and both of its buttons work.
+- [ ] Shopping: aisle tiles and counts, the new progress card (no duplicate count in the navigator), the tick pop, and the All done card appearing and disappearing correctly, with one success haptic.
+- [ ] The three empty screens use the new copy and buttons, and the buttons work.
+- [ ] Everything reads well in light and dark mode and at the largest accessibility text size. With Reduce Motion on, nothing animates.
+- [ ] Performance: Plan rows still do no database fetches per row or per redraw; the Tonight card and blank-week check use data the view already has.
 
 ---
 
