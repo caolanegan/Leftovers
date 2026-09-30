@@ -1,5 +1,7 @@
 # MealPlanner — instructions for Claude
 
+> These instructions cover the **iPhone app** in `MealPlanner/`. The web version lives in `web/` and has its own `web/CLAUDE.md` and `web/SPEC.md`; don't apply the Swift rules below to it.
+
 A native iPhone meal-planning app (SwiftUI + SwiftData, iOS 18+). **`SPEC.md` is the source of truth.** Read the sections relevant to your task before writing any code.
 
 ## Workflow
