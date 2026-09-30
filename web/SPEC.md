@@ -32,9 +32,32 @@ The iPhone app can only reach real users through the App Store, which needs a pa
 | Domain | optional | ~£10/yr |
 
 - Two Supabase projects: `leftovers-dev` and `leftovers-prod`. Local development points at dev.
-- Secrets live in Cloudflare Pages environment variables and a local `.env.local` that is git-ignored. Only the Supabase **anon** key ever reaches the browser; the service-role key is never in the repo or the frontend.
-- **Weekly backup:** a scheduled GitHub Action runs `pg_dump` against prod and commits the dump to a private bucket or repo. Free-tier Supabase does not back up for you.
+- Cloudflare Pages settings: root directory `web`, build command `pnpm install && pnpm build`, output directory `web/dist`. Every push to `master` deploys; branches get preview URLs.
 - Database changes are SQL migration files in `web/supabase/migrations/`, applied to dev first, then prod. Never edit a migration that has run.
+
+### W3.1 Secrets (the repo is public)
+
+`github.com/caolanegan/Leftovers` is a **public repository**. Treat everything committed as readable by anyone.
+
+| Value | Where it lives | Safe in the browser? |
+|---|---|---|
+| Supabase URL and **anon** key | Cloudflare Pages env vars, and `.env.local` locally | Yes — row-level security is what protects the data |
+| Supabase **service-role** key | nowhere in this project | Never |
+| Database connection string (for backups) | GitHub Actions secret | Never |
+
+- `.env*` files are git-ignored, except a committed `.env.example` holding key **names** and no values.
+- Never commit a database dump, a screenshot of real data, or anything holding the quick-send contact's name or number.
+- Never log rows containing personal details.
+
+### W3.2 Backups
+
+Supabase's free tier takes no backups, so the project does its own.
+
+- A GitHub Actions workflow, `.github/workflows/backup.yml`, runs every **Sunday at 03:00 UTC** and can also be run by hand.
+- It runs `pg_dump` against prod using the `SUPABASE_DB_URL` GitHub Actions secret, gzips the result, and uploads it as a **private workflow artefact** (90-day retention). Cloudflare R2 is an acceptable alternative target. **It must never write the dump into this repository.**
+- The run doubles as a keep-alive: free Supabase projects pause after seven days without activity, and a paused project serves nothing until it's restored by hand from the dashboard (data is kept).
+- `web/README.md` documents the restore: download the artefact, `gunzip`, then `psql "$SUPABASE_DB_URL" -f dump.sql` against a fresh project.
+- Test the restore once, into the dev project, as part of W-M8. A backup nobody has restored isn't a backup.
 
 ## W4. Accounts and households
 
@@ -158,6 +181,7 @@ Exporter, Web Share API, `wa.me` links, quick-send contact, the changed-since-sh
 - [ ] The shared text matches §7.9 exactly, and WhatsApp receives it correctly from a phone.
 
 ### W-M8 — Polish, QA and launch
-§13 polish, §15.2 walked through in a browser on a real iPhone and iPad, the backup job, and the production deploy.
+§13 polish, §15.2 walked through in a browser on a real iPhone and iPad, the backup workflow (§W3.2), and the production deploy.
 - [ ] Light, dark and large text all read correctly on phone and tablet widths.
-- [ ] The weekly backup job runs and produces a restorable dump.
+- [ ] The backup workflow runs on demand, uploads a private artefact, and the dump restores into the dev project.
+- [ ] Nothing in the repo holds a secret or personal data (§W3.1), and `.env.example` lists the key names only.

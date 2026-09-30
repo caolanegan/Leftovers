@@ -33,7 +33,7 @@ pnpm test && pnpm lint && pnpm build
 - **Ended weeks are frozen**: read them only from their JSON snapshots.
 - **The shopping list merges by ingredient id, never by name.**
 - **Row-level security is the access control.** Never rely on the client filtering by household; every table has RLS and every query works within it.
-- **Never commit secrets.** Only the Supabase anon key reaches the browser. `.env.local` stays git-ignored. Never log rows containing someone's contact details.
+- **This GitHub repo is public** (§W3.1). Only the Supabase anon key may reach the browser or a committed file; the service-role key and the database connection string live in GitHub/Cloudflare secrets and nowhere else. `.env*` stays git-ignored apart from `.env.example`, which holds key names and no values. Never commit a database dump, real data, or the quick-send contact's name or number, and never log rows containing personal details.
 - Database changes are new SQL migration files in `web/supabase/migrations/`. Never edit a migration that has already run.
 - Files stay under ~250 lines. Keep the folder structure in §W7.
 - UI copy is **British English**. Code identifiers are **US English**.
