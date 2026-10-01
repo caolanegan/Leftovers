@@ -32,6 +32,9 @@ Log of spec ambiguities and deviations, most recent first.
 
 ## 2026-10-01 — W-M0: Accounts
 
+- **Projects as created:** `leftovers-dev` and `leftovers-prd` (not `leftovers-prod`), both in **eu-west-1 (Ireland)** rather than London. Region only affects latency; dates still follow `Europe/London` in code (§7.1).
+- **Migrations are pushed by hand from `web/`** (`supabase link --project-ref <ref>`, then `supabase db push`), dev first, then prod, then re-link to dev so a stray push can't reach prod. The initial schema was pushed to both on 2026-10-01.
+
 - **Cloudflare output directory is `dist`, not `web/dist`.** §W3 sets the root directory to `web`, and Pages resolves the output directory relative to it, so `web/dist` would point at `web/web/dist`.
 - **Staying on Cloudflare Pages although Cloudflare now labels it legacy.** It still works and is free, and it keeps separate Production and Preview variables (Preview → `leftovers-dev`, Production → `leftovers-prod`), which the Workers flow doesn't split by branch as simply. Moving to Workers later needs only a `wrangler.jsonc`, no app code changes; that would be a spec change.
 - **Env var names:** `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (§W3.1 doesn't name them; Vite only exposes `VITE_`-prefixed vars to the browser). The anon key slot holds the project's publishable key (`sb_publishable_…`).
