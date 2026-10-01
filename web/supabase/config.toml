@@ -244,6 +244,16 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Sign-in emails carry a link and a 6-digit code (web/SPEC.md W4). New users get the confirmation
+# template, returning users the magic-link one, so both need the code.
+[auth.email.template.confirmation]
+subject = "Your Leftovers sign-in code"
+content_path = "./supabase/templates/sign-in.html"
+
+[auth.email.template.magic_link]
+subject = "Your Leftovers sign-in code"
+content_path = "./supabase/templates/sign-in.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

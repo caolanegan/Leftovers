@@ -2,6 +2,11 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-10-01 — W-M2 follow-up: sign-in code, one hosted project
+
+- **Sign-in emails now carry a 6-digit code as well as the link** (spec W4 updated). Found on a real iPhone: a home-screen app has its own storage, so the magic link opened from Mail signed in Safari, never the app. The app now asks for the code (`verifyOtp`, type `email`); the link still works in a browser. One template, `supabase/templates/sign-in.html`, serves both the confirmation (new user) and magic-link (returning user) emails. Covered by `auth.data.test.ts`, which reads the real email from Mailpit.
+- **One hosted Supabase project, `leftovers-prd`; `leftovers-dev` is retired** (the human's call: it's a hobby project). This supersedes the W-M0 dev/prod split below. `pnpm dev` now runs against the local Docker stack (the old `dev:local` script), migrations go local → `leftovers-prd`, Cloudflare Preview variables use `leftovers-prd`, and the W-M8 restore test targets the local stack. `web/.env.local` is no longer needed.
+
 ## 2026-10-01 — W-M2: Database and auth
 
 - **Runtime dependencies added:** `@supabase/supabase-js` and `@tanstack/react-query` (both in the §W2 list). No new dev dependencies; the Supabase CLI is a Homebrew tool, not a package.

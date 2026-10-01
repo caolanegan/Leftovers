@@ -13,7 +13,7 @@ function localEnv(): Record<string, string> {
   return env
 }
 
-const env = localEnv()
+export const env = localEnv()
 export const anon: Client = createSupabaseClient(env.API_URL, env.ANON_KEY)
 /** Local-only service-role client: bypasses RLS, used to seed rows and create test users. */
 export const admin: Client = createSupabaseClient(env.API_URL, env.SERVICE_ROLE_KEY)

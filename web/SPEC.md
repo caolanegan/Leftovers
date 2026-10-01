@@ -34,9 +34,9 @@ The iPhone app can only reach real users through the App Store, which needs a pa
 | Database, auth, photo storage | Supabase free tier | free |
 | Domain | optional | ~£10/yr |
 
-- Two Supabase projects: `leftovers-dev` and `leftovers-prod`. Local development points at dev.
-- Cloudflare Pages settings: root directory `web`, build command `pnpm install && pnpm build`, output directory `dist` (relative to the root directory). Production variables point at `leftovers-prod`, Preview variables at `leftovers-dev`. Every push to `master` deploys; branches get preview URLs.
-- Database changes are SQL migration files in `web/supabase/migrations/`, applied to dev first, then prod. Never edit a migration that has run.
+- **One hosted Supabase project, `leftovers-prd`.** It's a hobby project, so there's no hosted dev project. Local development and every test use the local Supabase stack in Docker (`supabase start`), and `pnpm dev` runs the app against it.
+- Cloudflare Pages settings: root directory `web`, build command `pnpm install && pnpm build`, output directory `dist` (relative to the root directory). Production and Preview variables both point at `leftovers-prd`, so a branch preview uses real data. Every push to `master` deploys; branches get preview URLs.
+- Database changes are SQL migration files in `web/supabase/migrations/`, applied to the local stack first (`supabase db reset`), then pushed to `leftovers-prd`. Never edit a migration that has run.
 
 ### W3.1 Secrets (the repo is public)
 
@@ -44,7 +44,7 @@ The iPhone app can only reach real users through the App Store, which needs a pa
 
 | Value | Where it lives | Safe in the browser? |
 |---|---|---|
-| Supabase URL and **anon** (publishable) key, as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env vars, and `web/.env.local` locally | Yes — row-level security is what protects the data |
+| Supabase URL and **anon** (publishable) key, as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env vars. Locally, `pnpm dev` reads the local stack's keys at run time | Yes — row-level security is what protects the data |
 | Supabase **service-role** key | nowhere in this project | Never |
 | Database connection string (for backups) | GitHub Actions secret | Never |
 
@@ -60,11 +60,12 @@ Supabase's free tier takes no backups, so the project does its own.
 - It runs `pg_dump` against prod using the `SUPABASE_DB_URL` GitHub Actions secret, gzips the result, and uploads it as a **private workflow artefact** (90-day retention). Cloudflare R2 is an acceptable alternative target. **It must never write the dump into this repository.**
 - The run doubles as a keep-alive: free Supabase projects pause after seven days without activity, and a paused project serves nothing until it's restored by hand from the dashboard (data is kept).
 - `web/README.md` documents the restore: download the artefact, `gunzip`, then `psql "$SUPABASE_DB_URL" -f dump.sql` against a fresh project.
-- Test the restore once, into the dev project, as part of W-M8. A backup nobody has restored isn't a backup.
+- Test the restore once, into the local Supabase stack, as part of W-M8. A backup nobody has restored isn't a backup.
 
 ## W4. Accounts and households
 
-- **Sign-in:** Supabase magic link by email. No passwords.
+- **Sign-in:** by email, no passwords. The email carries a magic link **and a 6-digit code**, and the app asks for the code. iPhone home-screen apps don't share Safari's storage, so a link opened from Mail signs in Safari, not the app; typing the code signs in the app itself. The link still works in an ordinary browser.
+- **Email template:** `web/supabase/templates/sign-in.html` (link and code), used for both the confirmation and the magic-link emails, since new users get the first and returning users the second. Locally `config.toml` points at it; in `leftovers-prd` the human pastes it into Authentication → Email Templates → **Confirm signup** and **Magic Link**, with the subject "Your Leftovers sign-in code".
 - **Household:** one row per household. Every piece of data belongs to a household, not a user.
 - A user joins a household by opening an invite link containing a single-use token. The first user to sign in creates a household automatically.
 - **A user belongs to exactly one household** (`unique (user_id)` on `household_member`).
@@ -72,7 +73,7 @@ Supabase's free tier takes no backups, so the project does its own.
 - **Opening an invite link:** if signed out, sign in first and come back to the invite. Signing in from an invite link **doesn't** auto-create a household. If the user already belongs to a household, the invite screen says so and does nothing; v1 has no leaving or moving households.
 - **Two `security definer` Postgres functions** do what RLS can't, called from `data/` via `rpc`: `ensure_household()` (creates the household, the member row and `household_settings` for a user who has none; returns the household id) and `accept_invite(token)` (checks the token is unused and the user has no household, adds them, marks the token used). They're the only `security definer` functions; each sets `search_path` and checks `auth.uid()`.
 - **Signed-out users** see only `/sign-in` and `/invite/:token`; every other route redirects to `/sign-in`. Settings gets a "Sign out" button.
-- **Magic-link redirects:** the link returns to the page's origin. Each Supabase project's Auth URL configuration allows that origin (done by the human): dev allows `http://localhost:5173` and the Pages preview URLs, prod allows `https://leftovers.pages.dev`. Locally, magic-link emails land in the local Supabase's mail viewer (Mailpit).
+- **Magic-link redirects:** the link returns to the page's origin. `leftovers-prd`'s Auth URL configuration allows `https://leftovers.pages.dev` and the Pages preview URLs (done by the human). Locally, sign-in emails land in the local Supabase's mail viewer (Mailpit).
 - **Row-level security on every table:** a row is readable and writable only if its `household_id` is one the signed-in user belongs to. RLS is the only access control; the browser is never trusted.
 - Two people editing at once is normal. Last write wins on a field. The shopping list subscribes to Supabase realtime so a tick by one person appears for the other.
 
@@ -155,7 +156,7 @@ Everything else — copy, British English, empty states, the personality decisio
 - **Data tests** run against a local Supabase instance: the §8 service behaviours, including that ended weeks reject writes and that RLS blocks another household's rows.
   - `pnpm test:data` runs them (needs Docker and `supabase start`); `pnpm test` stays domain-only and fast. Done means both pass.
   - Tests read the local instance's URL and keys at run time from `supabase status -o env`. They may use the **local** service-role key to create test users; it's a fixed, public default of the local stack. Never write any key into a committed file.
-- **Migrations:** `web/supabase/` (from `supabase init`, including `config.toml`) is committed. Milestones apply migrations locally only (`supabase db reset`). The human pushes them to dev, then prod, with `supabase link` and `supabase db push`.
+- **Migrations:** `web/supabase/` (from `supabase init`, including `config.toml`) is committed. Milestones apply migrations locally only (`supabase db reset`). The human pushes them to `leftovers-prd` with `supabase link` and `supabase db push`.
 - **Playwright** covers four flows: plan a meal, randomise a week, tick a shopping item and see "need more", share the list.
 - Done means zero TypeScript errors, zero lint warnings, all tests passing.
 
@@ -179,6 +180,7 @@ Migrations for every table in W5 with RLS, household creation and invite links, 
 - [ ] An invite link adds a second person to the same household; a used token, or a user already in a household, is refused.
 - [ ] RLS is enabled on every table, with a test per table; composite keys stop a row pointing into another household.
 - [ ] Signing in by magic link works locally end to end (Mailpit), and signed-out users only reach `/sign-in` and `/invite/:token`.
+- [ ] Signing in with the 6-digit code works, including from an iPhone home-screen app.
 - [ ] `pnpm test`, `pnpm test:data`, `pnpm lint` and `pnpm build` all pass. TanStack Query and Supabase JS are installed now.
 
 ### W-M3 — Domain port
@@ -207,5 +209,5 @@ Exporter, Web Share API, `wa.me` links, quick-send contact, the changed-since-sh
 ### W-M8 — Polish, QA and launch
 §13 polish, §15.2 walked through in a browser on a real iPhone and iPad, the backup workflow (§W3.2), and the production deploy.
 - [ ] Light, dark and large text all read correctly on phone and tablet widths.
-- [ ] The backup workflow runs on demand, uploads a private artefact, and the dump restores into the dev project.
+- [ ] The backup workflow runs on demand, uploads a private artefact, and the dump restores into the local Supabase stack.
 - [ ] Nothing in the repo holds a secret or personal data (§W3.1), and `.env.example` lists the key names only.
