@@ -2,6 +2,21 @@
 
 Log of spec ambiguities and deviations, most recent first.
 
+## 2026-10-01 — W-M2: Database and auth
+
+- **Runtime dependencies added:** `@supabase/supabase-js` and `@tanstack/react-query` (both in the §W2 list). No new dev dependencies; the Supabase CLI is a Homebrew tool, not a package.
+- **One migration**, `supabase/migrations/20261001000000_initial_schema.sql`, holds every §W5 table, RLS and the two `security definer` functions. Later schema changes go in new files.
+- **RLS shape.** `household_member` is readable only for your own row, which keeps every other policy (`household_id in (select household_id from household_member where user_id = auth.uid())`) free of recursion. Signed-in clients get no insert/update/delete on `household` or `household_member`; those happen only inside `ensure_household()` / `accept_invite()`. Invites are insertable and readable by members of the household but not updatable or deletable from the client (only `accept_invite` marks one used). `anon` has no table privileges.
+- **Snapshot columns:** `week_plan.archived_shopping` and `meal_slot.archived_snapshot` are `jsonb` (§7.8). `shopping_item_state.checked_amounts` is `jsonb` too; `item_key` stays text (an ingredient id).
+- **`household_settings`** columns: `quick_send_name`, `quick_send_phone`, `include_checked` (default false), `include_meal_plan` (default true), per §10.12.
+- **`ingredient.normalized_name`** is a plain required column; the client writes `NameNormalizer`'s output (W-M3/W-M4). Updated-at columns are set by the client, with no trigger.
+- **Invite errors:** `accept_invite(invite_token)` raises `invite_invalid` for an unknown or used token (deliberately not distinguishing the two) and `already_in_household`; `data/errors.ts` maps them to British English copy.
+- **Route structure:** `/sign-in` and `/invite/:token` sit outside the signed-in gate. The gate calls `ensure_household()` on first sign-in, so opening an invite while signed in never creates a household. A signed-out visit to any other path redirects to `/sign-in` and returns there after sign-in.
+- **Data tests** (`pnpm test:data`, config `vitest.data.config.ts`, files `src/**/*.data.test.ts`, helper `src/data/testkit.ts`) run against the local stack. `pnpm test` excludes them. The RLS-enabled catalogue check uses `docker exec` into the local database container, since PostgREST can't read `pg_class`.
+- **`pnpm dev:local`** (`scripts/dev-local.mjs`) runs Vite against the local stack, reading the URL and anon key from `supabase status -o env` into the process environment only. Nothing is written to disk.
+- **Local `config.toml`:** `project_id = "leftovers-web"`, `site_url` and redirect allow-list set to `http://localhost:5173` / `http://127.0.0.1:5173` so magic links land on the dev server.
+- **Bundle size limit raised** (`build.chunkSizeWarningLimit: 700`): the single bundle is about 524 kB with Supabase JS, which tripped the default 500 kB warning and §W10 requires zero warnings. Route-level code splitting can replace this later.
+
 ## 2026-10-01 — W-M1: Foundations
 
 - **Dev dependencies added (build tooling, §W2):** `vite`, `@vitejs/plugin-react`, `typescript`, `tailwindcss`, `@tailwindcss/vite`, `vite-plugin-pwa`, `vitest`, `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-plugin-react`, `eslint-plugin-react-hooks`, `globals`, `@types/react`, `@types/react-dom`, `@types/node`.

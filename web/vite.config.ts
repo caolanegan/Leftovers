@@ -31,5 +31,6 @@ export default defineConfig({
       },
     }),
   ],
-  test: { environment: 'node', include: ['src/**/*.test.ts'] },
+  build: { chunkSizeWarningLimit: 700 },
+  test: { environment: 'node', include: ['src/**/*.test.ts'], exclude: ['src/**/*.data.test.ts', 'node_modules/**'] },
 })

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { Screen } from '../../components/Screen'
+import { getClient } from '../../data/client'
+import { signOut } from '../../data/auth'
 import { getAppearance, setAppearance, type Appearance } from '../../app/appearance'
 
 const options: { value: Appearance; label: string }[] = [
@@ -41,6 +43,15 @@ export function SettingsPage() {
       <Link to="/settings/sharing" className="font-medium text-accent underline dark:text-accent-dark">
         Sharing
       </Link>
+      <div className="mt-8">
+        <button
+          type="button"
+          onClick={() => void signOut(getClient())}
+          className="rounded-lg border border-neutral-300 px-4 py-2 font-medium dark:border-neutral-700"
+        >
+          Sign out
+        </button>
+      </div>
     </Screen>
   )
 }
