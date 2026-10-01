@@ -67,6 +67,12 @@ Supabase's free tier takes no backups, so the project does its own.
 - **Sign-in:** Supabase magic link by email. No passwords.
 - **Household:** one row per household. Every piece of data belongs to a household, not a user.
 - A user joins a household by opening an invite link containing a single-use token. The first user to sign in creates a household automatically.
+- **A user belongs to exactly one household** (`unique (user_id)` on `household_member`).
+- **Invites:** "Invite someone" on `/settings/sharing` creates a `household_invite` row and shares the link `<origin>/invite/<token>` (Web Share, falling back to copy). A token works once; there's no expiry in v1.
+- **Opening an invite link:** if signed out, sign in first and come back to the invite. Signing in from an invite link **doesn't** auto-create a household. If the user already belongs to a household, the invite screen says so and does nothing; v1 has no leaving or moving households.
+- **Two `security definer` Postgres functions** do what RLS can't, called from `data/` via `rpc`: `ensure_household()` (creates the household, the member row and `household_settings` for a user who has none; returns the household id) and `accept_invite(token)` (checks the token is unused and the user has no household, adds them, marks the token used). They're the only `security definer` functions; each sets `search_path` and checks `auth.uid()`.
+- **Signed-out users** see only `/sign-in` and `/invite/:token`; every other route redirects to `/sign-in`. Settings gets a "Sign out" button.
+- **Magic-link redirects:** the link returns to the page's origin. Each Supabase project's Auth URL configuration allows that origin (done by the human): dev allows `http://localhost:5173` and the Pages preview URLs, prod allows `https://leftovers.pages.dev`. Locally, magic-link emails land in the local Supabase's mail viewer (Mailpit).
 - **Row-level security on every table:** a row is readable and writable only if its `household_id` is one the signed-in user belongs to. RLS is the only access control; the browser is never trusted.
 - Two people editing at once is normal. Last write wins on a field. The shopping list subscribes to Supabase realtime so a tick by one person appears for the other.
 
@@ -74,13 +80,19 @@ Supabase's free tier takes no backups, so the project does its own.
 
 Mirrors `../SPEC.md` §6.4 one-to-one, with these platform changes:
 
-- Every table gets `household_id uuid not null references household(id)`, `created_at timestamptz default now()`.
+- Every table except `household` gets `household_id uuid not null references household(id) on delete cascade`, and every table gets `created_at timestamptz default now()`.
+- **References stay inside one household:** every table gets `unique (household_id, id)`, and foreign keys between data tables are composite, `(household_id, x_id) references x (household_id, id)`, so a row can never point at another household's row.
 - Ids are `uuid` (`gen_random_uuid()`). Enums are stored as `text` with a check constraint, exactly the raw values in §6.2 and §6.3.
-- Tables: `household`, `household_member`, `ingredient`, `meal`, `recipe_ingredient`, `instruction_step`, `week_plan`, `meal_slot`, `manual_shopping_item`, `shopping_item_state`, `household_settings`.
+- Tables: `household`, `household_member`, `household_invite`, `ingredient`, `meal`, `recipe_ingredient`, `instruction_step`, `week_plan`, `meal_slot`, `manual_shopping_item`, `shopping_item_state`, `household_settings`.
+  - `household_member`: `user_id uuid not null references auth.users on delete cascade`, unique.
+  - `household_invite`: `token uuid` (`gen_random_uuid()`), `created_by`, `used_at`, `used_by`. Members can create and read their household's invites; nobody can read an invite by token except through `accept_invite`.
+  - `household_settings`: one row per household (`unique (household_id)`), created by `ensure_household()`.
+  - `meal`: `photo_path` and `thumbnail_path` (text, nullable) instead of `photoData`/`thumbnailData` (W6).
 - **Constraints the app used to enforce in code** (allowed here, and an improvement): `unique (household_id, week_id)` on `week_plan`; `unique (household_id, normalized_name)` on `ingredient`; `unique (week_plan_id, day_index, meal_type)` on `meal_slot`; `unique (week_plan_id, item_key)` on `shopping_item_state`.
 - **The shopping list still merges by `ingredient.id`, never by name** (§7.4).
 - Archived weeks keep the same JSON snapshots (§7.8) in `jsonb` columns. Ended weeks are read only from those snapshots.
-- Deletes follow §6.6. Use `on delete cascade` for slots, recipe lines, steps, manual items and item states.
+- Deletes follow §6.6. Use `on delete cascade` from a week plan to its slots, manual items and item states, and from a meal to its recipe lines and steps.
+- References to meals and ingredients **don't** cascade, because §6.6 keeps archived rows: `meal_slot.meal_id` and `meal_slot.leftover_of_slot_id` are `on delete set null`; `recipe_ingredient.ingredient_id` and `manual_shopping_item.ingredient_id` are `on delete restrict`. The services in `data/` do the §6.6 deletes explicitly (W-M4/W-M5). Composite foreign keys use `set null (meal_id)` so `household_id` is never cleared.
 - `household_settings` holds what `@AppStorage` held: the quick-send contact name and phone, and the two export options. Appearance is per person, in the browser's own storage.
 
 ## W6. Photos
@@ -117,6 +129,7 @@ Behaviour comes from `../SPEC.md` §10. The routes are:
 | `/ingredients`, `/ingredients/:id` | ingredient library | §10.9 |
 | `/shopping` | shopping list | §10.10 |
 | `/settings`, `/settings/sharing` | settings pages | §10.12 |
+| `/sign-in`, `/invite/:token` | magic-link sign-in, accept an invite | none (W4) |
 
 Platform differences, and nothing else:
 
@@ -140,6 +153,9 @@ Everything else — copy, British English, empty states, the personality decisio
 
 - **Vitest** covers `domain/` — port every test in `MealPlannerTests/` that tests domain logic (§15.1: week maths, quantities, name normalising, shopping list building, check evaluation, randomiser, leftover rules, archive snapshots, exporter, WhatsApp links).
 - **Data tests** run against a local Supabase instance: the §8 service behaviours, including that ended weeks reject writes and that RLS blocks another household's rows.
+  - `pnpm test:data` runs them (needs Docker and `supabase start`); `pnpm test` stays domain-only and fast. Done means both pass.
+  - Tests read the local instance's URL and keys at run time from `supabase status -o env`. They may use the **local** service-role key to create test users; it's a fixed, public default of the local stack. Never write any key into a committed file.
+- **Migrations:** `web/supabase/` (from `supabase init`, including `config.toml`) is committed. Milestones apply migrations locally only (`supabase db reset`). The human pushes them to dev, then prod, with `supabase link` and `supabase db push`.
 - **Playwright** covers four flows: plan a meal, randomise a week, tick a shopping item and see "need more", share the list.
 - Done means zero TypeScript errors, zero lint warnings, all tests passing.
 
@@ -160,7 +176,10 @@ Vite + React + TypeScript + Tailwind, routing, the PWA manifest and service work
 ### W-M2 — Database and auth
 Migrations for every table in W5 with RLS, household creation and invite links, magic-link sign-in, `data/` client.
 - [ ] A signed-in user sees only their household's rows; another household's rows are invisible in a test.
-- [ ] An invite link adds a second person to the same household.
+- [ ] An invite link adds a second person to the same household; a used token, or a user already in a household, is refused.
+- [ ] RLS is enabled on every table, with a test per table; composite keys stop a row pointing into another household.
+- [ ] Signing in by magic link works locally end to end (Mailpit), and signed-out users only reach `/sign-in` and `/invite/:token`.
+- [ ] `pnpm test`, `pnpm test:data`, `pnpm lint` and `pnpm build` all pass. TanStack Query and Supabase JS are installed now.
 
 ### W-M3 — Domain port
 Every module in W7's `domain/`, and the ported tests.
