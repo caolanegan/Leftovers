@@ -26,7 +26,7 @@ pnpm test && pnpm lint && pnpm build
 
 ## Hard rules
 
-- **Dependencies are fixed** (web/SPEC.md §W2): React, React Router, TanStack Query, Tailwind, Supabase JS, vite-plugin-pwa, Vitest, Playwright, Lucide icons. Anything else needs a spec change first.
+- **Dependencies are fixed** (web/SPEC.md §W2): React, React Router, TanStack Query, Tailwind, Supabase JS, vite-plugin-pwa, Vitest, Playwright, Lucide icons, plus the build tooling §W2 lists. Anything else needs a spec change first. pnpm is pinned to 10 via `packageManager`.
 - **`domain/` is pure**: no React, no Supabase, no `Date.now()` passed implicitly — take the current time as an argument, as the Swift version does. It is a direct port of `SPEC.md` §7 and keeps the same behaviour, including the exporter's exact output.
 - **Components never touch Supabase.** They call `data/`. `data/` owns every query and mutation.
 - **Every mutating operation** archives ended weeks first, refuses to change an ended week, and saves once (`SPEC.md` §8, the same rule as the iOS app).

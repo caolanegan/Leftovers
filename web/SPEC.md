@@ -21,7 +21,10 @@ The iPhone app can only reach real users through the App Store, which needs a pa
 - **`vite-plugin-pwa`** for the manifest and service worker, so it installs to the home screen.
 - **Supabase JS client** talking to Postgres directly, with row-level security doing the access control. No API server of our own.
 - **Vitest** for unit tests, **Playwright** for a handful of end-to-end flows.
-- Nothing else. Adding a dependency needs a spec change.
+- **Lucide** (`lucide-react`) for icons (W8).
+- **Build tooling** is allowed as dev dependencies without a spec change: TypeScript, `@vitejs/plugin-react`, Tailwind's Vite plugin, ESLint (with the TypeScript and React plugins) for `pnpm lint`, and the type packages these need. Log each one in `web/DECISIONS.md`.
+- **pnpm 10**, pinned with `"packageManager": "pnpm@10.34.6"` in `web/package.json` so local and Cloudflare builds match.
+- Nothing else. Adding a runtime dependency needs a spec change.
 
 ## W3. Hosting and deployment
 
@@ -32,7 +35,7 @@ The iPhone app can only reach real users through the App Store, which needs a pa
 | Domain | optional | ~£10/yr |
 
 - Two Supabase projects: `leftovers-dev` and `leftovers-prod`. Local development points at dev.
-- Cloudflare Pages settings: root directory `web`, build command `pnpm install && pnpm build`, output directory `web/dist`. Every push to `master` deploys; branches get preview URLs.
+- Cloudflare Pages settings: root directory `web`, build command `pnpm install && pnpm build`, output directory `dist` (relative to the root directory). Production variables point at `leftovers-prod`, Preview variables at `leftovers-dev`. Every push to `master` deploys; branches get preview URLs.
 - Database changes are SQL migration files in `web/supabase/migrations/`, applied to dev first, then prod. Never edit a migration that has run.
 
 ### W3.1 Secrets (the repo is public)
@@ -41,7 +44,7 @@ The iPhone app can only reach real users through the App Store, which needs a pa
 
 | Value | Where it lives | Safe in the browser? |
 |---|---|---|
-| Supabase URL and **anon** key | Cloudflare Pages env vars, and `.env.local` locally | Yes — row-level security is what protects the data |
+| Supabase URL and **anon** (publishable) key, as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env vars, and `web/.env.local` locally | Yes — row-level security is what protects the data |
 | Supabase **service-role** key | nowhere in this project | Never |
 | Database connection string (for backups) | GitHub Actions secret | Never |
 
@@ -145,12 +148,14 @@ Everything else — copy, British English, empty states, the personality decisio
 Same working rules as `../CLAUDE.md`: one milestone per session, read the sections it lists, report each acceptance criterion ✅/❌, log deviations in `web/DECISIONS.md`, commit and push.
 
 ### W-M0 — Accounts (human)
-Create the two Supabase projects and the Cloudflare Pages project, and put the keys in `.env.local` and Pages. **Done when:** `pnpm dev` runs and the app can reach Supabase.
+Create the two Supabase projects and the Cloudflare Pages project, and put the keys in `.env.local` and Pages. **Done when:** the dev project answers its auth health endpoint with the keys in `web/.env.local`. (`pnpm dev` is checked in W-M1, once there's an app.)
 
 ### W-M1 — Foundations
 Vite + React + TypeScript + Tailwind, routing, the PWA manifest and service worker, app shell with the bottom bar/sidebar, dark mode.
 - [ ] Installs to the iPhone home screen and opens full screen.
 - [ ] Empty screens for all five routes, with the right titles.
+- [ ] `pnpm dev` runs locally, and the push to `master` gives the first successful Cloudflare Pages build.
+- [ ] Home-screen icons are simple placeholders in the accent green, generated without new dependencies.
 
 ### W-M2 — Database and auth
 Migrations for every table in W5 with RLS, household creation and invite links, magic-link sign-in, `data/` client.
